@@ -113,19 +113,20 @@ char* err_msg[] =
 };
 
 //////////////////////////////////////////////////////////////////////
-char ch;         // last character read
-int  sym;        // last symbol read
+char ch;         	// last character read
+int  sym;        	// last symbol read
 char id[MAXIDLEN + 1]; // last identifier read
-int  num;        // last number read
-int  cc;         // character count
-int  ll;         // line length
+int  num;        	// last number read
+int  cc;         	// character count
+int  ll;         	// line length
 int  kk;
-int  err;
-int  cx;         // index of current instruction to be generated.
-int  level = 0;
-int  tx = 0;
+int  err;			// error counting
+int  cx;        	// index of current instruction to be generated.
+int  level = 0;		// current level
+int  tx = 0;		// table scale (last index of table)
 
 char line[80];
+//原文件的一行
 
 instruction code[CXMAX];
 
@@ -159,6 +160,7 @@ char* mnemonic[MAXINS] =
 	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC"
 };
 
+// const table entries
 typedef struct
 {
 	char name[MAXIDLEN + 1];
@@ -166,8 +168,12 @@ typedef struct
 	int  value;
 } comtab;
 
+// id table
 comtab table[TXMAX];
 
+// var and procedure table entries
+// var adress: 栈内偏移
+// proc adress: 汇编块的入口编号
 typedef struct
 {
 	char  name[MAXIDLEN + 1];
@@ -175,6 +181,8 @@ typedef struct
 	short level;
 	short address;
 } mask;
+// 相比于常量表项，一个int变成两个short，所以大小一样
+// 也用的id表存储
 
 FILE* infile;
 
