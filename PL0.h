@@ -1,10 +1,12 @@
 #include <stdio.h>
 
-#define NRW        11     // number of reserved words
+#define NRW        12     // number of reserved words, 新增ARRAY
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
-#define NSYM       10     // maximum number of symbols in array ssym and csym
+#define NSYM       12     // maximum number of symbols in array ssym and csym, 新增左右方括号括号
 #define MAXIDLEN   10     // length of identifiers
+#define MAXARRAYDIM 10 	  // maximum dimension of an array
+#define MAXARRAYNUM 50    // maximum number of arrays
 
 #define MAXADDRESS 32767  // maximum address
 #define MAXLEVEL   32     // maximum depth of nesting block
@@ -45,12 +47,15 @@ enum symtype
 	SYM_CALL,
 	SYM_CONST,
 	SYM_VAR,
-	SYM_PROCEDURE
+	SYM_PROCEDURE,
+	SYM_ARRAY,
+	SYM_LBRACKET, 
+	SYM_RBRACKET
 };
 
 enum idtype
 {
-	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE
+	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARRAY
 };
 
 enum opcode
@@ -81,7 +86,7 @@ char* err_msg[] =
 /*  1 */    "Found ':=' when expecting '='.",
 /*  2 */    "There must be a number to follow '='.",
 /*  3 */    "There must be an '=' to follow the identifier.",
-/*  4 */    "There must be an identifier to follow 'const', 'var', or 'procedure'.",
+/*  4 */    "There must be an identifier to follow 'const', 'var', 'procedure', or 'array'.",
 /*  5 */    "Missing ',' or ';'.",
 /*  6 */    "Incorrect procedure name.",
 /*  7 */    "Statement expected.",
@@ -109,8 +114,11 @@ char* err_msg[] =
 /* 29 */    "",
 /* 30 */    "",
 /* 31 */    "",
-/* 32 */    "There are too many levels."
-};
+/* 32 */    "There are too many levels.",
+/* 33 */	"There must be a '[' to follow array declaration.",
+/* 34 */	"Missing ']'.",
+/* 35 */	"In dimension declaration must be a 'constant ID' or a 'number'."
+}; // 加下一个错误时记得加逗号
 
 //////////////////////////////////////////////////////////////////////
 char ch;         	// last character read
@@ -124,6 +132,7 @@ int  err;			// error counting
 int  cx;        	// index of current instruction to be generated.
 int  level = 0;		// current level
 int  tx = 0;		// table scale (last index of table)
+int  atx = 0;		// array table scale (last index of array table)
 
 char line[80];
 //原文件的一行
@@ -134,24 +143,26 @@ char* word[NRW + 1] =
 {
 	"", /* place holder */
 	"begin", "call", "const", "do", "end","if",
-	"odd", "procedure", "then", "var", "while"
+	"odd", "procedure", "then", "var", "while","array"
 };
 
 int wsym[NRW + 1] =
 {
 	SYM_NULL, SYM_BEGIN, SYM_CALL, SYM_CONST, SYM_DO, SYM_END,
-	SYM_IF, SYM_ODD, SYM_PROCEDURE, SYM_THEN, SYM_VAR, SYM_WHILE
+	SYM_IF, SYM_ODD, SYM_PROCEDURE, SYM_THEN, SYM_VAR, SYM_WHILE, 
+	SYM_ARRAY
 };
 
 int ssym[NSYM + 1] =
 {
 	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH,
 	SYM_LPAREN, SYM_RPAREN, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON
+	, SYM_LBRACKET, SYM_RBRACKET
 };
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';'
+	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']'
 };
 
 #define MAXINS   8
@@ -183,6 +194,15 @@ typedef struct
 } mask;
 // 相比于常量表项，一个int变成两个short，所以大小一样
 // 也用的id表存储
+
+typedef struct
+{
+	char  name[MAXIDLEN +1];
+	int   dim;
+	int   dimlen[MAXARRAYDIM];
+} arr;
+
+arr arraytable[MAXARRAYNUM + 1];
 
 FILE* infile;
 

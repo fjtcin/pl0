@@ -227,12 +227,18 @@ void enter(int kind)
 		mk = (mask*) &table[tx];
 		mk->level = level;
 		break;
+	case ID_ARRAY:
+		mk = (mask*) &table[tx];
+		mk->level = level;
+		mk->address = dx;
+		break;
 	} // switch
 } // enter
 
 //////////////////////////////////////////////////////////////////////
 
 // locates identifier in symbol table.
+// 找变量时，从高往低找，所以会取/存离这个函数最近的变量名单位。
 int position(char* id)
 {
 	int i;
@@ -283,6 +289,19 @@ void vardeclaration(void)
 		error(4); // There must be an identifier to follow 'const', 'var', or 'procedure'.
 	}
 } // vardeclaration
+
+void arraydeclaration(void)
+{
+	if (sym == SYM_IDENTIFIER)
+	{
+		enter(ID_ARRAY);
+		getsym();
+	}
+	else
+	{
+		error(4); // There must be an identifier to follow 'const', 'var', or 'procedure'.
+	}
+}
 
 //////////////////////////////////////////////////////////////////////
 
@@ -661,6 +680,8 @@ void block(symset fsys)
 	mask* mk;
 	int block_dx;
 	int savedTx;
+	int arrdim;
+	int arrspace;
 	symset set1, set;
 
 	dx = 3;
@@ -719,6 +740,109 @@ void block(symset fsys)
 			}
 			while (sym == SYM_IDENTIFIER);
 		} // if
+
+		if (sym == SYM_ARRAY)
+		{  // block -> array (ident[statement] (,ident[statement])* ;)+ block
+			getsym();
+			do
+			{
+				arraydeclaration();
+				atx ++;
+				arrdim = 0;
+				arrspace = 1;
+				strcpy(arraytable[atx].name, table[tx].name);
+				set1 = createset(SYM_LBRACKET);
+				set = uniteset(createset(SYM_PROCEDURE), fsys);
+				test(set1, set, 33); // There must be a '[' to follow array declaration.
+				destroyset(set1);
+				destroyset(set);
+				while (sym == SYM_LBRACKET)
+				{
+					getsym();
+					if (sym == SYM_IDENTIFIER)
+					{
+						int index = position(id);
+						if (index == 0) error(11); // Undeclared identifier.
+						else if (table[index].kind != ID_CONSTANT) error(35);
+						// In dimension declaration must be a 'constant ID' or a 'number'.
+						else arraytable[atx].dimlen[arrdim ++] = table[index].value;
+						arrspace *= table[index].value;
+					}
+					else if (sym == SYM_NUMBER)
+					{
+						arraytable[atx].dimlen[arrdim] = num;
+						arrdim ++;
+						arrspace *= num;
+					}
+					else error(35);
+					getsym();
+					if(sym != SYM_RBRACKET) error(34); // missing ']'
+					getsym();
+				}
+				printf("before: dx=%d\n", dx);
+				dx += arrspace;
+				arraytable[atx].dim = arrdim;
+				printf("%d %s:\t%d\n", atx, arraytable[atx].name, arraytable[atx].dim);
+				for(int i = 0; i<arrdim; i++)
+				{
+					printf("dim%i:\t%d\n", i, arraytable[atx].dimlen[i]);
+				}
+
+				while (sym == SYM_COMMA)
+				{
+					getsym();
+					arraydeclaration();
+					atx ++;
+					arrdim = 0;
+					arrspace = 1;
+					strcpy(arraytable[atx].name, table[tx].name);
+					set1 = createset(SYM_LBRACKET);
+					set = uniteset(createset(SYM_PROCEDURE), fsys);
+					test(set1, set, 33); // There must be a '[' to follow array declaration.
+					destroyset(set1);
+					destroyset(set);
+					while (sym == SYM_LBRACKET)
+					{
+						getsym();
+						if (sym == SYM_IDENTIFIER)
+						{
+							int index = position(id);
+							if (index == 0) error(11); // Undeclared identifier.
+							else if (table[index].kind != ID_CONSTANT) error(35);
+							// In dimension declaration must be a 'constant ID' or a 'number'.
+							else arraytable[atx].dimlen[arrdim ++] = table[index].value;
+							arrspace *= table[index].value;
+						}
+						else if (sym == SYM_NUMBER)
+						{
+							arraytable[atx].dimlen[arrdim ++] = num;
+							arrspace *= num;
+						}
+						else error(35);
+						getsym();
+						if(sym != SYM_RBRACKET) error(34); // missing ']'
+						getsym();
+					}
+					dx += arrspace;
+					arraytable[atx].dim = arrdim;
+					printf("%d %s:\t%d\n", atx, arraytable[atx].name, arraytable[atx].dim);
+					for(int i = 0; i<arrdim; i++)
+					{
+					printf("dim%i:\t%d\n", i, arraytable[atx].dimlen[i]);
+					}
+				}
+				if (sym == SYM_SEMICOLON)
+				{
+					getsym();
+				}
+				else
+				{
+					error(5); // Missing ',' or ';'.
+				}
+			}
+			while (sym == SYM_IDENTIFIER);
+		} // if
+
 		block_dx = dx; //save dx before handling procedure call!
 		while (sym == SYM_PROCEDURE)
 		{ // procedure declarations
