@@ -12,7 +12,9 @@
 #include "set.c"
 
 //////////////////////////////////////////////////////////////////////
+
 // print error message.
+// 调用者指定错误类型
 void error(int n)
 {
 	int i;
@@ -28,15 +30,16 @@ void error(int n)
 //////////////////////////////////////////////////////////////////////
 void getch(void)
 {
-	if (cc == ll)
+	if (cc == ll)// 读完了就读入新的一行
 	{
 		if (feof(infile))
 		{
 			printf("\nPROGRAM INCOMPLETE\n");
 			exit(1);
 		}
-		ll = cc = 0;
+		ll = cc = 0; //new line
 		printf("%5d  ", cx);
+		// 注意：这里打印原pl0代码，但每行行首用的是编译出来的行数
 		while ( (!feof(infile)) // added & modified by alex 01-02-09
 			    && ((ch = getc(infile)) != '\n'))
 		{
@@ -46,12 +49,14 @@ void getch(void)
 		printf("\n");
 		line[++ll] = ' ';
 	}
-	ch = line[++cc];
+	ch = line[++cc]; // 从当前读的行中取出一个
 } // getch
 
 //////////////////////////////////////////////////////////////////////
+
 // gets a symbol from input stream.
 void getsym(void)
+// 词法识别
 {
 	int i, k;
 	char a[MAXIDLEN + 1];
@@ -71,8 +76,8 @@ void getsym(void)
 		while (isalpha(ch) || isdigit(ch));
 		a[k] = 0;
 		strcpy(id, a);
-		word[0] = id;
-		i = NRW;
+		word[0] = id; // 设置边界
+		i = NRW; // 与关键字一一比较，到0停止
 		while (strcmp(id, word[i--]));
 		if (++i)
 			sym = wsym[i]; // symbol is a reserved word
@@ -86,7 +91,7 @@ void getsym(void)
 		do
 		{
 			num = num * 10 + ch - '0';
-			k++;
+			k++; // 位数+1
 			getch();
 		}
 		while (isdigit(ch));
@@ -142,7 +147,8 @@ void getsym(void)
 		i = NSYM;
 		csym[0] = ch;
 		while (csym[i--] != ch);
-		if (++i)
+		// ' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';'
+		if (++i) // 一一比较
 		{
 			sym = ssym[i];
 			getch();
@@ -156,6 +162,7 @@ void getsym(void)
 } // getsym
 
 //////////////////////////////////////////////////////////////////////
+
 // generates (assembles) an instruction.
 void gen(int x, int y, int z)
 {
@@ -170,8 +177,11 @@ void gen(int x, int y, int z)
 } // gen
 
 //////////////////////////////////////////////////////////////////////
-// tests if error occurs and skips all symbols that do not belongs to s1 or s2.
+
+// tests if error (number n) occurs and skips all symbols that do not belongs to s1 or s2.
 void test(symset s1, symset s2, int n)
+// s1: 应该出现的symbol
+// s2：寻找的symbol(找到s2也意味着语句有错)
 {
 	symset s;
 
@@ -186,7 +196,9 @@ void test(symset s1, symset s2, int n)
 } // test
 
 //////////////////////////////////////////////////////////////////////
-int dx;  // data allocation index
+
+int dx;  // last data offset in a level
+// 注意：所有临时数据(用于操作符运算、条件及其他)都在栈顶，且用后释放
 
 // enter object(constant, variable or procedre) into table.
 void enter(int kind)
@@ -219,6 +231,7 @@ void enter(int kind)
 } // enter
 
 //////////////////////////////////////////////////////////////////////
+
 // locates identifier in symbol table.
 int position(char* id)
 {
@@ -254,8 +267,7 @@ void constdeclaration()
 		{
 			error(3); // There must be an '=' to follow the identifier.
 		}
-	} else	error(4);
-	 // There must be an identifier to follow 'const', 'var', or 'procedure'.
+	} else	error(4);	 // There must be an identifier to follow 'const', 'var', or 'procedure'.
 } // constdeclaration
 
 //////////////////////////////////////////////////////////////////////
@@ -273,10 +285,12 @@ void vardeclaration(void)
 } // vardeclaration
 
 //////////////////////////////////////////////////////////////////////
+
+// 打印生成的汇编指令
 void listcode(int from, int to)
 {
 	int i;
-	
+
 	printf("\n");
 	for (i = from; i < to; i++)
 	{
@@ -286,19 +300,26 @@ void listcode(int from, int to)
 } // listcode
 
 //////////////////////////////////////////////////////////////////////
+
+// factor -> ident | number | -factor | (expr)
+// factor -> ident {stack[top] = ident.value}
+// factor -> number {stack[top] = number}
+// factor -> -factor {stack[top] = -stack[top]}
+// factor -> (expr) {}
 void factor(symset fsys)
 {
 	void expression(symset fsys);
 	int i;
 	symset set;
-	
+
 	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
 
 	if (inset(sym, facbegsys))
+	// else if: sym在fsys中, 直接跳过factor的分析
 	{
 		if (sym == SYM_IDENTIFIER)
 		{
-			if ((i = position(id)) == 0)
+			if ((i = position(id)) == 0) //在table中寻找变量
 			{
 				error(11); // Undeclared identifier.
 			}
@@ -308,9 +329,11 @@ void factor(symset fsys)
 				{
 					mask* mk;
 				case ID_CONSTANT:
+				// factor -> ident, 把ident_const值直接置为栈顶
 					gen(LIT, 0, table[i].value);
 					break;
 				case ID_VARIABLE:
+				// factor -> ident_vari, 把这个值取出来置为栈顶
 					mk = (mask*) &table[i];
 					gen(LOD, level - mk->level, mk->address);
 					break;
@@ -322,6 +345,7 @@ void factor(symset fsys)
 			getsym();
 		}
 		else if (sym == SYM_NUMBER)
+		// factor -> number, 把这个数置为栈顶
 		{
 			if (num > MAXADDRESS)
 			{
@@ -332,9 +356,10 @@ void factor(symset fsys)
 			getsym();
 		}
 		else if (sym == SYM_LPAREN)
+		// factor -> (expr), 把表达式的值置为栈顶
 		{
 			getsym();
-			set = uniteset(createset(SYM_RPAREN, SYM_NULL), fsys);
+			set = uniteset(createset(SYM_RPAREN, SYM_NULL), fsys); //这句没懂为什么要unite
 			expression(set);
 			destroyset(set);
 			if (sym == SYM_RPAREN)
@@ -346,23 +371,30 @@ void factor(symset fsys)
 				error(22); // Missing ')'.
 			}
 		}
-		else if(sym == SYM_MINUS) // UMINUS,  Expr -> '-' Expr
-		{  
+		else if(sym == SYM_MINUS)
+		// factor -> -factor
+		{
 			 getsym();
 			 factor(fsys);
-			 gen(OPR, 0, OPR_NEG);
+			 gen(OPR, 0, OPR_NEG); //这里是OPR_NEG，注意OPR_NEG和OPR_MIN的区别
 		}
 		test(fsys, createset(SYM_LPAREN, SYM_NULL), 23);
 	} // if
 } // factor
 
 //////////////////////////////////////////////////////////////////////
+
+// term -> factor ((*|/) factor)*
+// term -> factor {}
+// term -> term*factor { top--; stack[top] = stack[top]*stack[top+1]}
+// term -> term/factor { top--; stack[top] = stack[top]/stack[top+1]}
 void term(symset fsys)
 {
 	int mulop;
 	symset set;
-	
+
 	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
+
 	factor(set);
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
 	{
@@ -382,13 +414,18 @@ void term(symset fsys)
 } // term
 
 //////////////////////////////////////////////////////////////////////
+
+// expression -> term ((+|-) term)*
+// expression -> term {}
+// expression -> expression+term { top--; stack[top] = stack[top]+stack[top+1]}
+// expression -> expression-term { top--; stack[top] = stack[top]-stack[top+1]}
 void expression(symset fsys)
 {
 	int addop;
 	symset set;
 
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
-	
+
 	term(set);
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
@@ -409,6 +446,11 @@ void expression(symset fsys)
 } // expression
 
 //////////////////////////////////////////////////////////////////////
+
+// condition -> odd expression | expression (= | <> | ...) expression
+// condition -> odd expression { stack[top] = stack[top]%2 }
+// condition -> expression = expression { top--; stack[top] = (stack[top] == stack[top-1]); }
+// ... ('=', '<>', '<', '>=', '>', '<=')
 void condition(symset fsys)
 {
 	int relop;
@@ -460,6 +502,14 @@ void condition(symset fsys)
 } // condition
 
 //////////////////////////////////////////////////////////////////////
+
+// statement -> ident := expr | call ident | begin statement (;statement)* ; end
+// | if condition then statement | while condition do statement
+// statement -> ident := expr { stack[position_of_ident] = stack[top] }
+// statement -> call ident { call position_of_ident }
+// statement -> begin statement { } (; statement { })* ; end
+// statement -> if condition then statement { ... }
+// statement -> while condition do statement { ... }
 void statement(symset fsys)
 {
 	int i, cx1, cx2;
@@ -514,13 +564,14 @@ void statement(symset fsys)
 			}
 			else
 			{
-				error(15); // A constant or variable can not be called. 
+				error(15); // A constant or variable can not be called.
 			}
 			getsym();
 		}
-	} 
+	}
 	else if (sym == SYM_IF)
-	{ // if statement
+	{ 	// statement -> if condition then statement
+		// cx1: condition完成时的位置
 		getsym();
 		set1 = createset(SYM_THEN, SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
@@ -536,12 +587,12 @@ void statement(symset fsys)
 			error(16); // 'then' expected.
 		}
 		cx1 = cx;
-		gen(JPC, 0, 0);
+		gen(JPC, 0, 0); // JPC: jump if stack[top] == 0
 		statement(fsys);
-		code[cx1].a = cx;	
+		code[cx1].a = cx;	// 回写
 	}
 	else if (sym == SYM_BEGIN)
-	{ // block
+	{ 	// begin statement (; statement)* ; end
 		getsym();
 		set1 = createset(SYM_SEMICOLON, SYM_END, SYM_NULL);
 		set = uniteset(set1, fsys);
@@ -554,7 +605,7 @@ void statement(symset fsys)
 			}
 			else
 			{
-				error(10);
+				error(10); // ';' expected.
 			}
 			statement(set);
 		} // while
@@ -570,7 +621,9 @@ void statement(symset fsys)
 		}
 	}
 	else if (sym == SYM_WHILE)
-	{ // while statement
+	{ 	// while condition do statement
+		// cx1 condition语句起始位置
+		// cx2 condition语句完成时的位置
 		cx1 = cx;
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
@@ -579,7 +632,7 @@ void statement(symset fsys)
 		destroyset(set1);
 		destroyset(set);
 		cx2 = cx;
-		gen(JPC, 0, 0);
+		gen(JPC, 0, 0); // condition 不满足，跳到 do 之后
 		if (sym == SYM_DO)
 		{
 			getsym();
@@ -589,13 +642,19 @@ void statement(symset fsys)
 			error(18); // 'do' expected.
 		}
 		statement(fsys);
-		gen(JMP, 0, cx1);
-		code[cx2].a = cx;
+		gen(JMP, 0, cx1); // do 完无条件跳回 condition
+		code[cx2].a = cx; // 回写
 	}
 	test(fsys, phi, 19);
 } // statement
-			
+
 //////////////////////////////////////////////////////////////////////
+
+// block -> const (ident = number (,ident = number)* ;)+ block
+// block -> var (ident (,ident)* ;)+ block
+// block -> procedure ident ; block ; block
+// block -> statement
+// 最高层的block没有名字
 void block(symset fsys)
 {
 	int cx0; // initial code index
@@ -616,7 +675,7 @@ void block(symset fsys)
 	do
 	{
 		if (sym == SYM_CONST)
-		{ // constant declarations
+		{ 	// block -> (ident = number (,ident = number)* ;)+
 			getsym();
 			do
 			{
@@ -639,7 +698,7 @@ void block(symset fsys)
 		} // if
 
 		if (sym == SYM_VAR)
-		{ // variable declarations
+		{  // block -> var (ident (,ident)* ;)+ block
 			getsym();
 			do
 			{
@@ -699,7 +758,7 @@ void block(symset fsys)
 				getsym();
 				set1 = createset(SYM_IDENTIFIER, SYM_PROCEDURE, SYM_NULL);
 				set = uniteset(statbegsys, set1);
-				test(set, fsys, 6);
+				test(set, fsys, 6); // Incorrect procedure name.
 				destroyset(set1);
 				destroyset(set);
 			}
@@ -709,15 +768,19 @@ void block(symset fsys)
 			}
 		} // while
 		dx = block_dx; //restore dx after handling procedure call!
+		// 只能调用儿子，不能调用孙子及以下，因为孙子以下的函数记录全部被覆盖了
+		// 但儿子可以调用，因为这里之后没有声明，至少在这个block执行完之前还能找到儿子
 		set1 = createset(SYM_IDENTIFIER, SYM_NULL);
 		set = uniteset(statbegsys, set1);
-		test(set, declbegsys, 7);
+		test(set, declbegsys, 7); //Statement expected.
+		// 如果不按顺序声明，会在这里报错。例如：先声明var，再声明const。
+		// 因为存储机制(dx)，不能先声明proc，再声明var。
 		destroyset(set1);
 		destroyset(set);
 	}
 	while (inset(sym, declbegsys));
 
-	code[mk->address].a = cx;
+	code[mk->address].a = cx; // 所有定义完成，从这里开始执行(回写第一句JMP)
 	mk->address = cx;
 	cx0 = cx;
 	gen(INT, 0, block_dx);
@@ -728,20 +791,23 @@ void block(symset fsys)
 	destroyset(set);
 	gen(OPR, 0, OPR_RET); // return
 	test(fsys, phi, 8); // test for error: Follow the statement is an incorrect symbol.
-	listcode(cx0, cx);
+	listcode(cx0, cx); // 打印这个函数的汇编块
 } // block
 
 //////////////////////////////////////////////////////////////////////
+
+// 根据层差找到基址
 int base(int stack[], int currentLevel, int levelDiff)
 {
 	int b = currentLevel;
-	
+
 	while (levelDiff--)
 		b = stack[b];
 	return b;
 } // base
 
 //////////////////////////////////////////////////////////////////////
+
 // interprets and executes codes.
 void interpret()
 {
@@ -757,12 +823,13 @@ void interpret()
 	b = 1;
 	top = 3;
 	stack[1] = stack[2] = stack[3] = 0;
+	// 栈帧前三项：访问链、控制链、返回地址
 	do
 	{
-		i = code[pc++];
+		i = code[pc++]; // 用pc调用
 		switch (i.f)
 		{
-		case LIT:
+		case LIT: // load Immediate to the top
 			stack[++top] = i.a;
 			break;
 		case OPR:
@@ -836,15 +903,15 @@ void interpret()
 			top--;
 			break;
 		case CAL:
-			stack[top + 1] = base(stack, b, i.l);
-			// generate new block mark
-			stack[top + 2] = b;
-			stack[top + 3] = pc;
+			stack[top + 1] = base(stack, b, i.l); // 访问链(被调用者的上层，注意l.i的意义)，被调用者的b
+			stack[top + 2] = b; // 控制链
+			stack[top + 3] = pc; // 返回地址
 			b = top + 1;
-			pc = i.a;
+			pc = i.a; // 注意precedure的address
+			//函数再内部调用LIT，建立栈帧时没有管
 			break;
 		case INT:
-			top += i.a;
+			top += i.a; //开辟空间，当且仅当函数的变量声明完的时候用
 			break;
 		case JMP:
 			pc = i.a;
@@ -862,10 +929,12 @@ void interpret()
 } // interpret
 
 //////////////////////////////////////////////////////////////////////
+
+// program -> block.
 void main ()
 {
 	FILE* hbin;
-	char s[80];
+	char s[80]; // file name to be compiled
 	int i;
 	symset set, set1, set2;
 
@@ -879,7 +948,7 @@ void main ()
 
 	phi = createset(SYM_NULL);
 	relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
-	
+
 	// create begin symbol sets
 	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 	statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
@@ -894,7 +963,7 @@ void main ()
 	set1 = createset(SYM_PERIOD, SYM_NULL);
 	set2 = uniteset(declbegsys, statbegsys);
 	set = uniteset(set1, set2);
-	block(set);
+	block(set); // program -> block.
 	destroyset(set1);
 	destroyset(set2);
 	destroyset(set);
@@ -911,6 +980,8 @@ void main ()
 		hbin = fopen("hbin.txt", "w");
 		for (i = 0; i < cx; i++)
 			fwrite(&code[i], sizeof(instruction), 1, hbin);
+			// 不知道这里在干什么。fwrite的第一个参数应该是被写入的元素数组的指针
+			// printf("%p\n", &code[i]);
 		fclose(hbin);
 	}
 	if (err == 0)

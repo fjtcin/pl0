@@ -5,7 +5,8 @@
 #include <stdarg.h>
 #include "set.h"
 
-symset uniteset(symset s1, symset s2)
+symset uniteset(symset s1, symset s2) 
+//合并，合并后为升序
 {
 	symset s;
 	snode* p;
