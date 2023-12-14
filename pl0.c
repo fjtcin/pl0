@@ -248,6 +248,15 @@ int position(char* id)
 	return i;
 } // position
 
+int arrposition(char *id)
+{
+	int i;
+	strcpy(arraytable[0].name, id);
+	i = atx + 1;
+	while (strcmp(arraytable[--i].name ,id) != 0);
+	return i;
+}
+
 //////////////////////////////////////////////////////////////////////
 void constdeclaration()
 {
@@ -303,6 +312,43 @@ void arraydeclaration(void)
 	}
 }
 
+// generate the address of a array element and put it on the top of the stack
+void arrayindex(symset fsys, int itable, int iarray)
+{
+	void expression(symset fsys);
+	symset set, set1;
+	int i, j, offset;
+	int tempdim = arraytable[iarray].dim;
+	mask* mk = (mask*) &table[itable];
+
+	gen(LEA, level - mk->level, mk->address);
+
+	for (i = 0; i < tempdim; i++)
+	{
+		if (i == 0)
+		{
+			set1 = createset(SYM_LBRACKET);
+			test(set1, fsys, 33); // There must be a '[' to follow array declaration or reference.
+			destroyset(set1);
+		}
+		else if (sym != SYM_LBRACKET) error(33);
+		getsym();
+		j = i + 1;
+		for (offset = 1; j < tempdim; j++) offset *= arraytable[iarray].dimlen[j];
+		gen(LIT, 0, offset);
+		set1 = createset(SYM_RBRACKET);
+		set = uniteset(set1, fsys);
+		expression(set);
+		destroyset(set);
+		destroyset(set1);
+		gen(OPR, 0, OPR_MUL);
+		if (i != 0) gen(OPR, 0, OPR_ADD);
+		if (sym != SYM_RBRACKET) error(34);
+		getsym();
+	}
+	gen(OPR, 0, OPR_ADD);
+}
+
 //////////////////////////////////////////////////////////////////////
 
 // 打印生成的汇编指令
@@ -355,6 +401,11 @@ void factor(symset fsys)
 				// factor -> ident_vari, 把这个值取出来置为栈顶
 					mk = (mask*) &table[i];
 					gen(LOD, level - mk->level, mk->address);
+					break;
+				case ID_ARRAY:
+					int iarray = arrposition(id);
+					arrayindex(fsys, i, iarray);
+					gen(LODA, 0, 0);
 					break;
 				case ID_PROCEDURE:
 					error(21); // Procedure identifier can not be in an expression.
@@ -525,13 +576,14 @@ void condition(symset fsys)
 // statement -> ident := expr | call ident | begin statement (;statement)* ; end
 // | if condition then statement | while condition do statement
 // statement -> ident := expr { stack[position_of_ident] = stack[top] }
+// statement -> ident arrayindex := expr
 // statement -> call ident { call position_of_ident }
 // statement -> begin statement { } (; statement { })* ; end
 // statement -> if condition then statement { ... }
 // statement -> while condition do statement { ... }
 void statement(symset fsys)
 {
-	int i, cx1, cx2;
+	int i, iarray, cx1, cx2;
 	symset set1, set;
 
 	if (sym == SYM_IDENTIFIER)
@@ -541,25 +593,44 @@ void statement(symset fsys)
 		{
 			error(11); // Undeclared identifier.
 		}
-		else if (table[i].kind != ID_VARIABLE)
-		{
-			error(12); // Illegal assignment.
-			i = 0;
-		}
-		getsym();
-		if (sym == SYM_BECOMES)
+		else if (table[i].kind == ID_VARIABLE)
 		{
 			getsym();
+			if (sym == SYM_BECOMES)
+			{
+				getsym();
+			}
+			else
+			{
+				error(13); // ':=' expected.
+			}
+			expression(fsys);
+			mk = (mask*) &table[i];
+			if (i)
+			{
+				gen(STO, level - mk->level, mk->address);
+			}
+		}
+		else if (table[i].kind == ID_ARRAY)
+		{
+			getsym();
+			iarray = arrposition(id);
+			arrayindex(fsys, i, iarray);
+			if (sym == SYM_BECOMES)
+			{
+				getsym();
+			}
+			else
+			{
+				error(13); // ':=' expected.
+			}
+			expression(fsys);
+			gen(STOA, 0, 2);
 		}
 		else
 		{
-			error(13); // ':=' expected.
-		}
-		expression(fsys);
-		mk = (mask*) &table[i];
-		if (i)
-		{
-			gen(STO, level - mk->level, mk->address);
+			error(12); // Illegal assignment.
+			i = 0;
 		}
 	}
 	else if (sym == SYM_CALL)
@@ -779,14 +850,9 @@ void block(symset fsys)
 					if(sym != SYM_RBRACKET) error(34); // missing ']'
 					getsym();
 				}
-				printf("before: dx=%d\n", dx);
+
 				dx += arrspace;
 				arraytable[atx].dim = arrdim;
-				printf("%d %s:\t%d\n", atx, arraytable[atx].name, arraytable[atx].dim);
-				for(int i = 0; i<arrdim; i++)
-				{
-					printf("dim%i:\t%d\n", i, arraytable[atx].dimlen[i]);
-				}
 
 				while (sym == SYM_COMMA)
 				{
@@ -825,11 +891,6 @@ void block(symset fsys)
 					}
 					dx += arrspace;
 					arraytable[atx].dim = arrdim;
-					printf("%d %s:\t%d\n", atx, arraytable[atx].name, arraytable[atx].dim);
-					for(int i = 0; i<arrdim; i++)
-					{
-					printf("dim%i:\t%d\n", i, arraytable[atx].dimlen[i]);
-					}
 				}
 				if (sym == SYM_SEMICOLON)
 				{
@@ -1045,7 +1106,19 @@ void interpret()
 				pc = i.a;
 			top--;
 			break;
+		case LEA:
+			stack[++top] = base(stack, b, i.l) + i.a;
+			break;
+		case LODA:
+			stack[top] = stack[stack[top]];
+			break;
+		case STOA:
+			stack[stack[top - 1]] = stack[top];
+			top -= i.a;
+			break;
 		} // switch
+		// for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
+		// printf("\n");
 	}
 	while (pc);
 

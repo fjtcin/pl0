@@ -12,7 +12,7 @@
 #define MAXLEVEL   32     // maximum depth of nesting block
 #define CXMAX      500    // size of code array
 
-#define MAXSYM     30     // maximum number of symbols  
+#define MAXSYM     30     // maximum number of symbols
 
 #define STACKSIZE  1000   // maximum storage
 
@@ -49,7 +49,7 @@ enum symtype
 	SYM_VAR,
 	SYM_PROCEDURE,
 	SYM_ARRAY,
-	SYM_LBRACKET, 
+	SYM_LBRACKET,
 	SYM_RBRACKET
 };
 
@@ -60,7 +60,7 @@ enum idtype
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC
+	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, LEA, LODA, STOA
 };
 
 enum oprcode
@@ -115,7 +115,7 @@ char* err_msg[] =
 /* 30 */    "",
 /* 31 */    "",
 /* 32 */    "There are too many levels.",
-/* 33 */	"There must be a '[' to follow array declaration.",
+/* 33 */	"Expecting '[' for array declaration or reference.",
 /* 34 */	"Missing ']'.",
 /* 35 */	"In dimension declaration must be a 'constant ID' or a 'number'."
 }; // 加下一个错误时记得加逗号
@@ -149,7 +149,7 @@ char* word[NRW + 1] =
 int wsym[NRW + 1] =
 {
 	SYM_NULL, SYM_BEGIN, SYM_CALL, SYM_CONST, SYM_DO, SYM_END,
-	SYM_IF, SYM_ODD, SYM_PROCEDURE, SYM_THEN, SYM_VAR, SYM_WHILE, 
+	SYM_IF, SYM_ODD, SYM_PROCEDURE, SYM_THEN, SYM_VAR, SYM_WHILE,
 	SYM_ARRAY
 };
 
@@ -165,10 +165,10 @@ char csym[NSYM + 1] =
 	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']'
 };
 
-#define MAXINS   8
+#define MAXINS   11
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC"
+	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "LEA", "LODA", "STOA"
 };
 
 // const table entries

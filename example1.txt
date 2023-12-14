@@ -1,4 +1,10 @@
-const n = 4;
-array a[n][5][6], b[4];
+const n = 2;
+array a[n][2];
+procedure p;
 begin
+a[0+1*0][0] := 99;
+end;
+begin
+  call p;
+  a[1][0] := 1+2*3;
 end.
