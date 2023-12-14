@@ -147,7 +147,7 @@ void getsym(void)
 		i = NSYM;
 		csym[0] = ch;
 		while (csym[i--] != ch);
-		// ' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';'
+		// ' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']'
 		if (++i) // 一一比较
 		{
 			sym = ssym[i];
@@ -313,7 +313,10 @@ void arraydeclaration(void)
 }
 
 // generate the address of a array element and put it on the top of the stack
-void arrayindex(symset fsys, int itable, int iarray)
+// return dim - number of index
+// dim == number of index (flag == 0): treat as var/number;
+// dim != number of index (flag != 0): treat as address/pointer.
+int arrayindex(symset fsys, int itable, int iarray)
 {
 	void expression(symset fsys);
 	symset set, set1;
@@ -331,7 +334,7 @@ void arrayindex(symset fsys, int itable, int iarray)
 			test(set1, fsys, 33); // There must be a '[' to follow array declaration or reference.
 			destroyset(set1);
 		}
-		else if (sym != SYM_LBRACKET) error(33);
+		else if (sym != SYM_LBRACKET) break;
 		getsym();
 		j = i + 1;
 		for (offset = 1; j < tempdim; j++) offset *= arraytable[iarray].dimlen[j];
@@ -347,6 +350,7 @@ void arrayindex(symset fsys, int itable, int iarray)
 		getsym();
 	}
 	gen(OPR, 0, OPR_ADD);
+	return tempdim - i;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -374,7 +378,7 @@ void listcode(int from, int to)
 void factor(symset fsys)
 {
 	void expression(symset fsys);
-	int i;
+	int i, flag, iarray;
 	symset set;
 
 	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
@@ -403,9 +407,10 @@ void factor(symset fsys)
 					gen(LOD, level - mk->level, mk->address);
 					break;
 				case ID_ARRAY:
-					int iarray = arrposition(id);
-					arrayindex(fsys, i, iarray);
-					gen(LODA, 0, 0);
+					getsym();
+					iarray = arrposition(id);
+					flag = arrayindex(fsys, i, iarray);
+					if(!flag) gen(LODA, 0, 0);
 					break;
 				case ID_PROCEDURE:
 					error(21); // Procedure identifier can not be in an expression.
@@ -583,7 +588,7 @@ void condition(symset fsys)
 // statement -> while condition do statement { ... }
 void statement(symset fsys)
 {
-	int i, iarray, cx1, cx2;
+	int i, iarray, cx1, cx2, flag;
 	symset set1, set;
 
 	if (sym == SYM_IDENTIFIER)
@@ -615,8 +620,9 @@ void statement(symset fsys)
 		{
 			getsym();
 			iarray = arrposition(id);
-			arrayindex(fsys, i, iarray);
-			if (sym == SYM_BECOMES)
+			flag = arrayindex(fsys, i, iarray);
+			if (flag) error(12);
+			else if (sym == SYM_BECOMES)
 			{
 				getsym();
 			}
@@ -1117,8 +1123,8 @@ void interpret()
 			top -= i.a;
 			break;
 		} // switch
-		// for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
-		// printf("\n");
+		 for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
+		 printf("\n");
 	}
 	while (pc);
 
@@ -1147,7 +1153,7 @@ void main ()
 	relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
 
 	// create begin symbol sets
-	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
+	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_ARRAY, SYM_NULL);
 	statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
 	facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
 
