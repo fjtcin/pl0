@@ -108,7 +108,7 @@ void getsym(void)
 		}
 		else
 		{
-			sym = SYM_NULL;       // illegal?
+			sym = SYM_NULL;       // ignored
 		}
 	}
 	else if (ch == '>')
@@ -359,7 +359,7 @@ void factor(symset fsys)
 		// factor -> (expr), 把表达式的值置为栈顶
 		{
 			getsym();
-			set = uniteset(createset(SYM_RPAREN, SYM_NULL), fsys); //这句没懂为什么要unite
+			set = uniteset(createset(SYM_RPAREN, SYM_NULL), fsys); // 遇到 ')' 和 NULL 即可错误恢复
 			expression(set);
 			destroyset(set);
 			if (sym == SYM_RPAREN)
@@ -460,7 +460,7 @@ void condition(symset fsys)
 	{
 		getsym();
 		expression(fsys);
-		gen(OPR, 0, 6);
+		gen(OPR, 0, OPR_ODD);
 	}
 	else
 	{
@@ -980,8 +980,6 @@ void main ()
 		hbin = fopen("hbin.txt", "w");
 		for (i = 0; i < cx; i++)
 			fwrite(&code[i], sizeof(instruction), 1, hbin);
-			// 不知道这里在干什么。fwrite的第一个参数应该是被写入的元素数组的指针
-			// printf("%p\n", &code[i]);
 		fclose(hbin);
 	}
 	if (err == 0)
