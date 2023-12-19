@@ -637,7 +637,7 @@ void statement(symset fsys)
 				error(13); // ':=' expected.
 			}
 			expression(fsys);
-			gen(STOA, 0, 2);
+			gen(STOA, 0, 0);
 		}
 		else
 		{
@@ -911,99 +911,6 @@ void block(symset fsys)
 			while (sym == SYM_IDENTIFIER);
 		} // if
 
-		/*
-		if (sym == SYM_ARRAY)
-		{  // block -> array (ident[statement] (,ident[statement])* ;)+ block
-			getsym();
-			do
-			{
-				arraydeclaration();
-				atx ++;
-				arrdim = 0;
-				arrspace = 1;
-				strcpy(arraytable[atx].name, table[tx].name);
-				set1 = createset(SYM_LBRACKET);
-				set = uniteset(createset(SYM_PROCEDURE), fsys);
-				test(set1, set, 33); // There must be a '[' to follow array declaration.
-				destroyset(set1);
-				destroyset(set);
-				while (sym == SYM_LBRACKET)
-				{
-					getsym();
-					if (sym == SYM_IDENTIFIER)
-					{
-						int index = position(id);
-						if (index == 0) error(11); // Undeclared identifier.
-						else if (table[index].kind != ID_CONSTANT) error(35);
-						// In dimension declaration must be a 'constant ID' or a 'number'.
-						else arraytable[atx].dimlen[arrdim ++] = table[index].value;
-						arrspace *= table[index].value;
-					}
-					else if (sym == SYM_NUMBER)
-					{
-						arraytable[atx].dimlen[arrdim] = num;
-						arrdim ++;
-						arrspace *= num;
-					}
-					else error(35);
-					getsym();
-					if(sym != SYM_RBRACKET) error(34); // missing ']'
-					getsym();
-				}
-
-				dx += arrspace;
-				arraytable[atx].dim = arrdim;
-
-				while (sym == SYM_COMMA)
-				{
-					getsym();
-					arraydeclaration();
-					atx ++;
-					arrdim = 0;
-					arrspace = 1;
-					strcpy(arraytable[atx].name, table[tx].name);
-					set1 = createset(SYM_LBRACKET);
-					set = uniteset(createset(SYM_PROCEDURE), fsys);
-					test(set1, set, 33); // There must be a '[' to follow array declaration.
-					destroyset(set1);
-					destroyset(set);
-					while (sym == SYM_LBRACKET)
-					{
-						getsym();
-						if (sym == SYM_IDENTIFIER)
-						{
-							int index = position(id);
-							if (index == 0) error(11); // Undeclared identifier.
-							else if (table[index].kind != ID_CONSTANT) error(35);
-							// In dimension declaration must be a 'constant ID' or a 'number'.
-							else arraytable[atx].dimlen[arrdim ++] = table[index].value;
-							arrspace *= table[index].value;
-						}
-						else if (sym == SYM_NUMBER)
-						{
-							arraytable[atx].dimlen[arrdim ++] = num;
-							arrspace *= num;
-						}
-						else error(35);
-						getsym();
-						if(sym != SYM_RBRACKET) error(34); // missing ']'
-						getsym();
-					}
-					dx += arrspace;
-					arraytable[atx].dim = arrdim;
-				}
-				if (sym == SYM_SEMICOLON)
-				{
-					getsym();
-				}
-				else
-				{
-					error(5); // Missing ',' or ';'.
-				}
-			}
-			while (sym == SYM_IDENTIFIER);
-		} // if*/
-
 		block_dx = dx; //save dx before handling procedure call!
 		while (sym == SYM_PROCEDURE)
 		{ // procedure declarations
@@ -1214,7 +1121,7 @@ void interpret()
 			break;
 		case STOA:
 			stack[stack[top - 1]] = stack[top];
-			top -= i.a;
+			top -= 2;
 			break;
 		case PRT:
 			switch (i.a)
@@ -1228,8 +1135,8 @@ void interpret()
 			}
 			break;
 		} // switch
-		 //for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
-		 //printf("\n");
+		//for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
+		//printf("\n");
 	}
 	while (pc);
 
