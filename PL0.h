@@ -48,9 +48,9 @@ enum symtype
 	SYM_CONST,
 	SYM_VAR,
 	SYM_PROCEDURE,
-	SYM_ARRAY,
 	SYM_LBRACKET,
-	SYM_RBRACKET
+	SYM_RBRACKET,
+	SYM_PRINT
 };
 
 enum idtype
@@ -60,7 +60,7 @@ enum idtype
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, LEA, LODA, STOA
+	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, LEA, LODA, STOA, PRT
 };
 
 enum oprcode
@@ -117,7 +117,8 @@ char* err_msg[] =
 /* 32 */    "There are too many levels.",
 /* 33 */	"Expecting '[' for array declaration or reference.",
 /* 34 */	"Missing ']'.",
-/* 35 */	"In dimension declaration must be a 'constant ID' or a 'number'."
+/* 35 */	"In dimension declaration must be a 'constant ID' or a 'number'.",
+/* 36 */	"There must be a '(' to follow 'print'."
 }; // 加下一个错误时记得加逗号
 
 //////////////////////////////////////////////////////////////////////
@@ -143,14 +144,15 @@ char* word[NRW + 1] =
 {
 	"", /* place holder */
 	"begin", "call", "const", "do", "end","if",
-	"odd", "procedure", "then", "var", "while","array"
+	"odd", "procedure", "then", "var", "while",
+	"print"
 };
 
 int wsym[NRW + 1] =
 {
 	SYM_NULL, SYM_BEGIN, SYM_CALL, SYM_CONST, SYM_DO, SYM_END,
 	SYM_IF, SYM_ODD, SYM_PROCEDURE, SYM_THEN, SYM_VAR, SYM_WHILE,
-	SYM_ARRAY
+	SYM_PRINT
 };
 
 int ssym[NSYM + 1] =
@@ -165,10 +167,10 @@ char csym[NSYM + 1] =
 	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']'
 };
 
-#define MAXINS   11
+#define MAXINS   12
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "LEA", "LODA", "STOA"
+	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "LEA", "LODA", "STOA", "PRT"
 };
 
 // const table entries

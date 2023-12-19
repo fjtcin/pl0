@@ -179,9 +179,9 @@ void gen(int x, int y, int z)
 //////////////////////////////////////////////////////////////////////
 
 // tests if error (number n) occurs and skips all symbols that do not belongs to s1 or s2.
-void test(symset s1, symset s2, int n)
 // s1: 应该出现的symbol
 // s2：寻找的symbol(找到s2也意味着语句有错)
+void test(symset s1, symset s2, int n)
 {
 	symset s;
 
@@ -375,6 +375,7 @@ void listcode(int from, int to)
 // factor -> number {stack[top] = number}
 // factor -> -factor {stack[top] = -stack[top]}
 // factor -> (expr) {}
+// sym is the next one following (factor) after this function
 void factor(symset fsys)
 {
 	void expression(symset fsys);
@@ -400,11 +401,13 @@ void factor(symset fsys)
 				case ID_CONSTANT:
 				// factor -> ident, 把ident_const值直接置为栈顶
 					gen(LIT, 0, table[i].value);
+					getsym();
 					break;
 				case ID_VARIABLE:
 				// factor -> ident_vari, 把这个值取出来置为栈顶
 					mk = (mask*) &table[i];
 					gen(LOD, level - mk->level, mk->address);
+					getsym();
 					break;
 				case ID_ARRAY:
 					getsym();
@@ -414,10 +417,11 @@ void factor(symset fsys)
 					break;
 				case ID_PROCEDURE:
 					error(21); // Procedure identifier can not be in an expression.
+					getsym();
 					break;
 				} // switch
 			}
-			getsym();
+			// if array don't get extra symbol
 		}
 		else if (sym == SYM_NUMBER)
 		// factor -> number, 把这个数置为栈顶
@@ -453,7 +457,8 @@ void factor(symset fsys)
 			 factor(fsys);
 			 gen(OPR, 0, OPR_NEG); //这里是OPR_NEG，注意OPR_NEG和OPR_MIN的区别
 		}
-		test(fsys, createset(SYM_LPAREN, SYM_NULL), 23);
+		test(fsys, createset(SYM_LPAREN, SYM_NULL, SYM_RPAREN), 23);
+		// ')' added for print
 	} // if
 } // factor
 
@@ -586,6 +591,7 @@ void condition(symset fsys)
 // statement -> begin statement { } (; statement { })* ; end
 // statement -> if condition then statement { ... }
 // statement -> while condition do statement { ... }
+// statement -> print(expression+)
 void statement(symset fsys)
 {
 	int i, iarray, cx1, cx2, flag;
@@ -741,7 +747,25 @@ void statement(symset fsys)
 		gen(JMP, 0, cx1); // do 完无条件跳回 condition
 		code[cx2].a = cx; // 回写
 	}
-	test(fsys, phi, 19);
+	else if (sym == SYM_PRINT)
+	{
+		getsym();
+		if(sym != SYM_LPAREN) error(36); // "There must be a '(' to follow 'print'."
+		do
+		{
+			getsym();
+			set1 = createset(SYM_COMMA, SYM_RPAREN);
+			set = uniteset(set1, fsys);
+			expression(set);
+			destroyset(set1);
+			destroyset(set);
+			gen(PRT, 0, 0);
+		} while (sym == SYM_COMMA);
+		if (sym != SYM_RPAREN) error(22); // missing ')'
+		getsym();
+		gen(PRT, 0, 1);
+	}
+	test(fsys, phi, 19); // "Incorrect symbol."
 } // statement
 
 //////////////////////////////////////////////////////////////////////
@@ -801,10 +825,79 @@ void block(symset fsys)
 			do
 			{
 				vardeclaration();
+				if(sym == SYM_LBRACKET)
+				{
+					table[tx].kind = ID_ARRAY;
+					atx ++;
+					arrdim = 0;
+					arrspace = 1;
+					strcpy(arraytable[atx].name, table[tx].name);
+					do
+					{
+						getsym();
+						if (sym == SYM_IDENTIFIER)
+						{
+							int index = position(id);
+							if (index == 0) error(11); // Undeclared identifier.
+							else if (table[index].kind != ID_CONSTANT) error(35);
+							// In dimension declaration must be a 'constant ID' or a 'number'.
+							else arraytable[atx].dimlen[arrdim ++] = table[index].value;
+							arrspace *= table[index].value;
+						}
+						else if (sym == SYM_NUMBER)
+						{
+							arraytable[atx].dimlen[arrdim] = num;
+							arrdim ++;
+							arrspace *= num;
+						}
+						else error(35);
+						// In dimension declaration must be a 'constant ID' or a 'number'.
+						getsym();
+						if(sym != SYM_RBRACKET) error(34); // missing ']'
+						getsym();
+					} while (sym == SYM_LBRACKET);
+					dx += arrspace - 1;
+					arraytable[atx].dim = arrdim;
+				}
+
 				while (sym == SYM_COMMA)
 				{
 					getsym();
 					vardeclaration();
+					if(sym == SYM_LBRACKET)
+					{
+						table[tx].kind = ID_ARRAY;
+						atx ++;
+						arrdim = 0;
+						arrspace = 1;
+						strcpy(arraytable[atx].name, table[tx].name);
+						do
+						{
+							getsym();
+							if (sym == SYM_IDENTIFIER)
+							{
+								int index = position(id);
+								if (index == 0) error(11); // Undeclared identifier.
+								else if (table[index].kind != ID_CONSTANT) error(35);
+								// In dimension declaration must be a 'constant ID' or a 'number'.
+								else arraytable[atx].dimlen[arrdim ++] = table[index].value;
+								arrspace *= table[index].value;
+							}
+							else if (sym == SYM_NUMBER)
+							{
+								arraytable[atx].dimlen[arrdim] = num;
+								arrdim ++;
+								arrspace *= num;
+							}
+							else error(35);
+							// In dimension declaration must be a 'constant ID' or a 'number'.
+							getsym();
+							if(sym != SYM_RBRACKET) error(34); // missing ']'
+							getsym();
+						} while (sym == SYM_LBRACKET);
+						dx += arrspace - 1;
+						arraytable[atx].dim = arrdim;
+					}
 				}
 				if (sym == SYM_SEMICOLON)
 				{
@@ -818,6 +911,7 @@ void block(symset fsys)
 			while (sym == SYM_IDENTIFIER);
 		} // if
 
+		/*
 		if (sym == SYM_ARRAY)
 		{  // block -> array (ident[statement] (,ident[statement])* ;)+ block
 			getsym();
@@ -908,7 +1002,7 @@ void block(symset fsys)
 				}
 			}
 			while (sym == SYM_IDENTIFIER);
-		} // if
+		} // if*/
 
 		block_dx = dx; //save dx before handling procedure call!
 		while (sym == SYM_PROCEDURE)
@@ -1122,9 +1216,20 @@ void interpret()
 			stack[stack[top - 1]] = stack[top];
 			top -= i.a;
 			break;
+		case PRT:
+			switch (i.a)
+			{
+			case 0:
+				printf("%d\t", stack[top--]);
+				break;
+			case 1:
+				printf("\n");
+				break;
+			}
+			break;
 		} // switch
-		 for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
-		 printf("\n");
+		 //for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
+		 //printf("\n");
 	}
 	while (pc);
 
@@ -1153,7 +1258,7 @@ void main ()
 	relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
 
 	// create begin symbol sets
-	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_ARRAY, SYM_NULL);
+	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 	statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
 	facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
 
