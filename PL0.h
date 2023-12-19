@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdio.h>//123
 
 #define NRW        12     // number of reserved words, 新增ARRAY
 #define TXMAX      500    // length of identifier table
