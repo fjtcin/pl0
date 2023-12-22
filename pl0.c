@@ -751,7 +751,7 @@ void block(symset fsys)
 			block(set);
 			destroyset(set1);
 			destroyset(set);
-			tx = savedTx;
+			tx = savedTx; // 只能调用儿子，不能调用孙子及以下，因为孙子以下的函数记录全部被覆盖了
 			level--;
 
 			if (sym == SYM_SEMICOLON)
@@ -769,15 +769,11 @@ void block(symset fsys)
 			}
 		} // while
 		dx = block_dx; //restore dx after handling procedure call!
-		// 只能调用儿子，不能调用孙子及以下，因为孙子以下的函数记录全部被覆盖了
-		// 但儿子可以调用，因为这里之后没有声明，至少在这个block执行完之前还能找到儿子
-		set1 = createset(SYM_IDENTIFIER, SYM_NULL);
-		set = uniteset(statbegsys, set1);
-		test(set, declbegsys, 7); //Statement expected.
-		// 如果不按顺序声明，会在这里报错。例如：先声明var，再声明const。
-		// 因为存储机制(dx)，不能先声明proc，再声明var。
-		destroyset(set1);
-		destroyset(set);
+		// set1 = createset(SYM_IDENTIFIER, SYM_NULL);
+		// set = uniteset(statbegsys, set1);
+		// test(set, declbegsys, 7); //Statement expected.
+		// destroyset(set1);
+		// destroyset(set);
 	}
 	while (inset(sym, declbegsys));
 
