@@ -757,11 +757,11 @@ void block(symset fsys)
 			if (sym == SYM_SEMICOLON)
 			{
 				getsym();
-				set1 = createset(SYM_IDENTIFIER, SYM_PROCEDURE, SYM_NULL);
-				set = uniteset(statbegsys, set1);
-				test(set, fsys, 6); // Incorrect procedure name.
-				destroyset(set1);
-				destroyset(set);
+				// set1 = createset(SYM_IDENTIFIER, SYM_PROCEDURE, SYM_NULL);
+				// set = uniteset(statbegsys, set1);
+				// test(set, fsys, 6); // Incorrect procedure name.
+				// destroyset(set1);
+				// destroyset(set);
 			}
 			else
 			{
