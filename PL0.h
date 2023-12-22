@@ -3,7 +3,7 @@
 #define NRW        12     // number of reserved words, 新增ARRAY
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
-#define NSYM       12     // maximum number of symbols in array ssym and csym, 新增左右方括号括号
+#define NSYM       13     // maximum number of symbols in array ssym and csym, 新增左右方括号括号
 #define MAXIDLEN   10     // length of identifiers
 #define MAXARRAYDIM 10 	  // maximum dimension of an array
 #define MAXARRAYNUM 50    // maximum number of arrays
@@ -50,12 +50,13 @@ enum symtype
 	SYM_PROCEDURE,
 	SYM_LBRACKET,
 	SYM_RBRACKET,
-	SYM_PRINT
+	SYM_PRINT,
+	SYM_ADDRESS
 };
 
 enum idtype
 {
-	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARRAY
+	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARRAY, ID_POINTER
 };
 
 enum opcode
@@ -108,7 +109,7 @@ char* err_msg[] =
 /* 23 */    "The symbol can not be followed by a factor.",
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
-/* 26 */    "",
+/* 26 */    "Invalid type argument of unary '*'",//*后不是指针
 /* 27 */    "",
 /* 28 */    "",
 /* 29 */    "",
@@ -159,12 +160,12 @@ int ssym[NSYM + 1] =
 {
 	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH,
 	SYM_LPAREN, SYM_RPAREN, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON
-	, SYM_LBRACKET, SYM_RBRACKET
+	, SYM_LBRACKET, SYM_RBRACKET,SYM_ADDRESS
 };
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']'
+	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']','&'
 };
 
 #define MAXINS   12
