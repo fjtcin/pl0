@@ -32,17 +32,18 @@ void getch(void)
 {
 	if (cc == ll)// 读完了就读入新的一行
 	{
-		if (feof(infile))
-		{
-			printf("\nPROGRAM INCOMPLETE\n");
-			exit(1);
-		}
 		ll = cc = 0; //new line
 		printf("%5d  ", cx);
 		// 注意：这里打印原pl0代码，但每行行首用的是编译出来的行数
-		while ( (!feof(infile)) // added & modified by alex 01-02-09
-			    && ((ch = getc(infile)) != '\n'))
+		while (ch != '.')
 		{
+			ch = getc(infile);
+			if (ch == EOF)
+			{
+				printf("\nPROGRAM INCOMPLETE\n");
+				exit(1);
+			}
+			if (ch == '\n') break;
 			printf("%c", ch);
 			line[++ll] = ch;
 		} // while
@@ -908,7 +909,6 @@ void interpret()
 			stack[top + 3] = pc; // 返回地址
 			b = top + 1;
 			pc = i.a; // 注意precedure的address
-			//函数再内部调用LIT，建立栈帧时没有管
 			break;
 		case INT:
 			top += i.a; //开辟空间，当且仅当函数的变量声明完的时候用
@@ -987,6 +987,9 @@ void main ()
 	else
 		printf("There are %d error(s) in PL/0 program.\n", err);
 	listcode(0, cx);
+	// for (i = 1; i <= tx; ++i) {
+	// 	printf("%d %s %d %d\n", i, table[i].name, table[i].kind, table[i].value);
+	// }
 } // main
 
 //////////////////////////////////////////////////////////////////////
