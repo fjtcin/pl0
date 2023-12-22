@@ -110,8 +110,8 @@ char* err_msg[] =
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
 /* 26 */    "Invalid type argument of unary '*'",//*后不是指针
-/* 27 */    "",
-/* 28 */    "",
+/* 27 */    "invalid operands of types pointer",//
+/* 28 */    "invalid conversion from pointer/int to int/pointer",
 /* 29 */    "",
 /* 30 */    "",
 /* 31 */    "",
@@ -206,6 +206,8 @@ typedef struct
 } arr;
 
 arr arraytable[MAXARRAYNUM + 1];
+
+int exdim//expression's dim判断当前值是几级指针，0是整数，不为0时不能乘除
 
 FILE* infile;
 

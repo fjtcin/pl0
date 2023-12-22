@@ -310,6 +310,7 @@ void vardeclaration(void)
 		strcpy(arraytable[atx].name, table[tx].name);
 		arraytable[atx].dim = dimx;
 		enter(ID_POINTER);
+		getsym();
 	}
 	else
 	{
@@ -430,7 +431,7 @@ void listcode(int from, int to)
 // factor -> -factor {stack[top] = -stack[top]}
 // factor -> (expr) {}
 // sym is the next one following (factor) after this function
-void factor(symset fsys)
+int factor(symset fsys)
 {
 	void expression(symset fsys);
 	int i, flag, iarray;
@@ -683,8 +684,13 @@ void statement(symset fsys)
 				error(13);
 			}
 			getsym();
-			
 			int idpt=arrposition(id);
+			int dim=expression(fsys);
+			if(dim!=ptdim)
+			{
+				error(28);
+			}
+			gen(STOA,0,0);
 		}
 		else if (table[i].kind == ID_VARIABLE)
 		{
@@ -699,7 +705,7 @@ void statement(symset fsys)
 			}
 			expression(fsys);
 			mk = (mask*) &table[i];
-			if (i)
+			if (i)//这句没用，上面比较了i!=0
 			{
 				gen(STO, level - mk->level, mk->address);
 			}
@@ -1165,7 +1171,8 @@ int main ()
 	int i;
 	symset set, set1, set2;
 
-	printf("Please input source file name: "); // get file name to be compiled
+	freopen("11.out","w",stdout);
+	//printf("Please input source file name: "); // get file name to be compiled
 	scanf("%s", s);
 	if ((infile = fopen(s, "r")) == NULL)
 	{
