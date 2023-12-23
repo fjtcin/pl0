@@ -516,7 +516,7 @@ int factor(symset fsys)
 					iarray = arrposition(id);
 					flag = arrayindex(fsys, i, iarray);
 					if(!flag) gen(LODA, 0, 0);
-					else arrid=iarray;
+					else flag|=(iarray<<16);
 					flag=-flag;
 					break;
 				case ID_PROCEDURE:
@@ -595,6 +595,8 @@ int term(symset fsys)
 	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
 
 	int dm=factor(set);
+	int arrid=(dm>=0?((dm&mask1)>>16):(((-dm)&mask1)>>16));
+	dm=(dm>=0?(dm&mask2):-((-dm)&mask2));
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
 	{
 		if(dm!=0)
@@ -604,6 +606,7 @@ int term(symset fsys)
 		mulop = sym;
 		getsym();
 		dm=factor(set);
+		dm=(dm>=0?(dm&mask2):-((-dm)&mask2));
 		if(dm!=0)
 		{
 			error(27);
@@ -618,7 +621,7 @@ int term(symset fsys)
 		}
 	} // while
 	destroyset(set);
-	return dm;
+	return dm>0?(dm|(arrid<<16)):-((-dm)|(arrid<<16));
 } // term
 
 //////////////////////////////////////////////////////////////////////
@@ -629,11 +632,13 @@ int term(symset fsys)
 // expression -> expression-term { top--; stack[top] = stack[top]-stack[top+1]}
 int expression(symset fsys)
 {
-	int addop;
+	int addop,arrid;
 	symset set;
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
 
 	int dm=term(set),dm1=0;
+	arrid=(dm>0?((dm&mask1)>>16):(((-dm)&mask1)>>16));
+	dm=(dm>=0?(dm&mask2):-((-dm)&mask2));
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
 		addop = sym;
@@ -641,6 +646,8 @@ int expression(symset fsys)
 		dm1=term(set);
 		if (addop == SYM_PLUS)
 		{
+			arrid|=(dm1>0?((dm1&mask1)>>16):(((-dm1)&mask1)>>16));
+			dm1=(dm1>=0?(dm1&mask2):-((-dm1)&mask2));
 			if(dm1==0&&dm==0||dm1>0&&dm==0||dm>0&&dm1==0)
 				gen(OPR, 0, OPR_ADD);
 			else if(dm1==0&&dm<0||dm1<0&&dm==0)
@@ -656,7 +663,7 @@ int expression(symset fsys)
 				}
 				else
 				{
-					//gen(SWP,0,0);
+					gen(SWP,0,0);
 					for(int i=arraytable[arrid].dim+dm1+1;i<arraytable[arrid].dim;i++)
 					{
 						gen(LIT,0,arraytable[arrid].dimlen[i]);
@@ -672,6 +679,7 @@ int expression(symset fsys)
 		}
 		else
 		{
+			dm1=(dm1>=0?(dm1&mask2):-((-dm1)&mask2));
 			if(dm1!=0&&dm==0)
 			{
 				error(27);
@@ -699,13 +707,12 @@ int expression(symset fsys)
 				}
 				dm=0;
 				gen(OPR, 0, OPR_MIN);
-				arrid=0;
 			}
 		}
 	} // while
 
 	destroyset(set);
-	return dm;
+	return dm>0?(dm|(arrid<<16)):-((-dm)|(arrid<<16));
 } // expression
 
 //////////////////////////////////////////////////////////////////////
@@ -786,16 +793,20 @@ void statement(symset fsys)
 		if(sym==SYM_TIMES)
 		{
 			getsym();
-			dm=abs(expression(fsys));
+			dm=abs(expression(fsys))&mask2;
 //printf("%d %d %s\n",sym,dm,id);
 			if(sym!=SYM_BECOMES)
 			{
 				error(13);
 			}
 			getsym();
-			dm1=abs(expression(fsys));
+			dm1=abs(expression(fsys))&mask2;
 			//printf("%d %d\n",dm,dm1);
 			if(dm-1!=dm1)
+			{
+				error(28);
+			}
+			if(dm==0)
 			{
 				error(26);
 			}
@@ -814,7 +825,7 @@ void statement(symset fsys)
 				error(13);
 			}
 			getsym();
-			int dim=abs(expression(fsys));
+			int dim=abs(expression(fsys))&mask2;
 			if(arraytable[idpt].dim!=dim)
 			{
 				error(28);

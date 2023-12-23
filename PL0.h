@@ -135,7 +135,8 @@ int  cx;        	// index of current instruction to be generated.
 int  level = 0;		// current level
 int  tx = 0;		// table scale (last index of table)
 int  atx = 0;		// array table scale (last index of array table)
-int  arrid=0;
+const int mask1=0xffff0000;
+const int mask2=0x0000ffff;
 
 char line[80];
 //原文件的一行
