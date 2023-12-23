@@ -1,7 +1,10 @@
-var i,*j,a[3][3];
+var a,*b,**c;
 begin
-  a[2][2]:=1;
-  a[1][1]:=a[1];
-  print(a[1][1],a[1]);
-  *j:=3;
+  a := 1;
+  b := &a;
+  c := *&b;
+  *b:=3;
+  print(a);
+  **c:=4;
+  print(a);
 end.

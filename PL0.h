@@ -112,9 +112,9 @@ char* err_msg[] =
 /* 26 */    "Invalid type argument of unary '*'",//*后不是指针
 /* 27 */    "invalid operands of types pointer",//
 /* 28 */    "invalid conversion from pointer/int to int/pointer",
-/* 29 */    "",
-/* 30 */    "",
-/* 31 */    "",
+/* 29 */    "lvalue required as unary '&' operand",//&&a
+/* 30 */    "Invalid type argument of unary '&'",//不合法取址
+/* 31 */    "wrong type argument to unary minus",
 /* 32 */    "There are too many levels.",
 /* 33 */	"Expecting '[' for array declaration or reference.",
 /* 34 */	"Missing ']'.",
@@ -207,7 +207,7 @@ typedef struct
 
 arr arraytable[MAXARRAYNUM + 1];
 
-int exdim//expression's dim判断当前值是几级指针，0是整数，不为0时不能乘除
+//int exdim//expression's dim判断当前值是几级指针，0是整数，不为0时不能乘除
 
 FILE* infile;
 

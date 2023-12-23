@@ -2,7 +2,7 @@
 
 #pragma warning(disable:4996)
 
-
+#include<math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +10,9 @@
 
 #include "PL0.h"
 #include "set.c"
+
+#define max(a,b) ((a)>(b)?(a):(b))
+#define min(a,b) ((a)<(b)?(a):(b))
 
 //////////////////////////////////////////////////////////////////////
 
@@ -176,6 +179,18 @@ void gen(int x, int y, int z)
 	code[cx++].a = z;
 } // gen
 
+void regen()
+{
+	if(code[cx-1].f==LODA)
+		cx--;
+	else if(code[cx-1].f==LOD)
+		code[cx-1].f=LEA;
+	else
+	{
+		error(30);
+	}
+}
+
 //////////////////////////////////////////////////////////////////////
 
 // tests if error (number n) occurs and skips all symbols that do not belongs to s1 or s2.
@@ -235,7 +250,7 @@ void enter(int kind)
 	case ID_POINTER:
 		mk = (mask*) &table[tx];
 		mk->level = level;
-		mk->address = dx;
+		mk->address = dx++;
 		break;
 	} // switch
 } // enter
@@ -293,6 +308,7 @@ void constdeclaration()
 //////////////////////////////////////////////////////////////////////
 void vardeclaration(void)
 {
+	int dimx=0;
 	if (sym == SYM_IDENTIFIER)
 	{
 		enter(ID_VARIABLE);
@@ -300,16 +316,16 @@ void vardeclaration(void)
 	}
 	else if (sym==SYM_TIMES)
 	{
-		int dimx=0;
 		do
 		{
 			dimx++;
 			getsym();
 		} while (sym==SYM_TIMES);
+		enter(ID_POINTER);
 		atx++;
 		strcpy(arraytable[atx].name, table[tx].name);
 		arraytable[atx].dim = dimx;
-		enter(ID_POINTER);
+		for (int i=0;i<=MAXARRAYDIM;i++)arraytable[atx].dimlen[i]=0;
 		getsym();
 	}
 	else
@@ -373,7 +389,7 @@ void arraydeclaration(void)
 // dim != number of index (flag != 0): treat as address/pointer.
 int arrayindex(symset fsys, int itable, int iarray)
 {
-	void expression(symset fsys);
+	int expression(symset fsys);
 	symset set, set1;
 	int i, j, offset;
 	int tempdim = arraytable[iarray].dim;
@@ -433,8 +449,8 @@ void listcode(int from, int to)
 // sym is the next one following (factor) after this function
 int factor(symset fsys)
 {
-	void expression(symset fsys);
-	int i, flag, iarray;
+	int expression(symset fsys);
+	int i, flag=0, iarray;
 	symset set;
 
 	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
@@ -442,7 +458,25 @@ int factor(symset fsys)
 	if (inset(sym, facbegsys))
 	// else if: sym在fsys中, 直接跳过factor的分析
 	{
-		if (sym == SYM_IDENTIFIER)
+		if(sym==SYM_TIMES)
+		{
+			getsym();
+			int dm=factor(fsys);
+			if(dm<=0)
+			{
+				error(26);
+			}
+			gen(LODA, 0, 0);
+			flag=dm-1;
+		}
+		else if(sym==SYM_ADDRESS)
+		{
+			getsym();
+			int dm=factor(fsys);
+			regen();
+			flag=dm+1;
+		}
+		else if (sym == SYM_IDENTIFIER)
 		{
 			if ((i = position(id)) == 0) //在table中寻找变量
 			{
@@ -457,12 +491,14 @@ int factor(symset fsys)
 				// factor -> ident, 把ident_const值直接置为栈顶
 					gen(LIT, 0, table[i].value);
 					getsym();
+					flag= 0;
 					break;
 				case ID_VARIABLE:
 				// factor -> ident_vari, 把这个值取出来置为栈顶
 					mk = (mask*) &table[i];
 					gen(LOD, level - mk->level, mk->address);
 					getsym();
+					flag= 0;
 					break;
 				case ID_ARRAY:
 					getsym();
@@ -474,6 +510,14 @@ int factor(symset fsys)
 					error(21); // Procedure identifier can not be in an expression.
 					getsym();
 					break;
+				case ID_POINTER:
+					iarray = arrposition(id);
+					flag = arraytable[iarray].dim;
+					mk = (mask*) &table[i];
+					gen(LOD, level - mk->level, mk->address);
+					getsym();
+					break;
+					// factor -> ident_pointer, 把这个指针取出来置为栈顶
 				} // switch
 			}
 			// if array don't get extra symbol
@@ -488,13 +532,14 @@ int factor(symset fsys)
 			}
 			gen(LIT, 0, num);
 			getsym();
+			flag= 0;
 		}
 		else if (sym == SYM_LPAREN)
 		// factor -> (expr), 把表达式的值置为栈顶
 		{
 			getsym();
 			set = uniteset(createset(SYM_RPAREN, SYM_NULL), fsys); //这句没懂为什么要unite
-			expression(set);
+			flag=expression(set);
 			destroyset(set);
 			if (sym == SYM_RPAREN)
 			{
@@ -508,13 +553,19 @@ int factor(symset fsys)
 		else if(sym == SYM_MINUS)
 		// factor -> -factor
 		{
-			 getsym();
-			 factor(fsys);
-			 gen(OPR, 0, OPR_NEG); //这里是OPR_NEG，注意OPR_NEG和OPR_MIN的区别
+			getsym();
+			flag=factor(fsys);
+			if(flag>0)
+			{
+				error(31);
+			}
+			else 
+				gen(OPR, 0, OPR_NEG); //这里是OPR_NEG，注意OPR_NEG和OPR_MIN的区别
 		}
-		test(fsys, createset(SYM_LPAREN, SYM_NULL, SYM_RPAREN), 23);
+		test(fsys, createset(SYM_LPAREN, SYM_NULL, SYM_RPAREN), 23);//好像有bug，但不影响跑，不改
 		// ')' added for print
 	} // if
+	return flag;
 } // factor
 
 //////////////////////////////////////////////////////////////////////
@@ -523,19 +574,27 @@ int factor(symset fsys)
 // term -> factor {}
 // term -> term*factor { top--; stack[top] = stack[top]*stack[top+1]}
 // term -> term/factor { top--; stack[top] = stack[top]/stack[top+1]}
-void term(symset fsys)
+int term(symset fsys)
 {
 	int mulop;
 	symset set;
 
 	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
 
-	factor(set);
+	int dm=factor(set);
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
 	{
+		if(dm>0)
+		{
+			error(27);
+		}
 		mulop = sym;
 		getsym();
-		factor(set);
+		dm=factor(set);
+		if(dm>0)
+		{
+			error(27);
+		}
 		if (mulop == SYM_TIMES)
 		{
 			gen(OPR, 0, OPR_MUL);
@@ -546,6 +605,7 @@ void term(symset fsys)
 		}
 	} // while
 	destroyset(set);
+	return dm;
 } // term
 
 //////////////////////////////////////////////////////////////////////
@@ -554,30 +614,47 @@ void term(symset fsys)
 // expression -> term {}
 // expression -> expression+term { top--; stack[top] = stack[top]+stack[top+1]}
 // expression -> expression-term { top--; stack[top] = stack[top]-stack[top+1]}
-void expression(symset fsys)
+int expression(symset fsys)
 {
 	int addop;
 	symset set;
 
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
 
-	term(set);
+	int dm=term(set),dm1=0;
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
 		addop = sym;
 		getsym();
-		term(set);
+		dm1=term(set);
 		if (addop == SYM_PLUS)
 		{
 			gen(OPR, 0, OPR_ADD);
+			if(dm1==0&&dm>0||dm1>0&&dm==0||dm1==0&&dm==0)
+			{
+				dm=max(dm,dm1);
+			}
+			else
+			{
+				error(27);
+			}
 		}
 		else
 		{
 			gen(OPR, 0, OPR_MIN);
+			if(dm1!=dm)
+			{
+				error(27);
+			}
+			else
+			{
+				dm=0;
+			}
 		}
 	} // while
 
 	destroyset(set);
+	return dm;
 } // expression
 
 //////////////////////////////////////////////////////////////////////
@@ -649,32 +726,32 @@ void condition(symset fsys)
 // statement -> print(expression+)
 void statement(symset fsys)
 {
-	int i, iarray, cx1, cx2, flag;
+	int i, iarray, cx1, cx2, flag,dm,dm1;
 	symset set1, set;
 
 	if (sym == SYM_IDENTIFIER||sym==SYM_TIMES)
 	{ // variable assignment
 		mask* mk;
-		int ptdim=0;
 		if(sym==SYM_TIMES)
 		{
-			do
+			getsym();
+			dm=expression(fsys);
+//printf("%d %d %s\n",sym,dm,id);
+			if(sym!=SYM_BECOMES)
 			{
-				ptdim++;
-				getsym();
-			} while (sym==SYM_TIMES);
-			if(sym!=SYM_IDENTIFIER)
+				error(13);
+			}
+			getsym();
+			dm1=expression(fsys);
+			if(dm-1!=dm1)
 			{
 				error(26);
 			}
+			gen(STOA,0,0);
 		}
-		if (! (i = position(id)))
+		else if (! (i = position(id)))
 		{
 			error(11); // Undeclared identifier.
-		}
-		else if(ptdim!=0&&table[i].kind!=ID_POINTER)
-		{
-			error(26);
 		}
 		else if (table[i].kind == ID_POINTER)
 		{
@@ -686,11 +763,12 @@ void statement(symset fsys)
 			getsym();
 			int idpt=arrposition(id);
 			int dim=expression(fsys);
-			if(dim!=ptdim)
+			if(arraytable[idpt].dim!=dim)
 			{
 				error(28);
 			}
-			gen(STOA,0,0);
+			mk = (mask*) &table[i];
+			gen(STO,level-mk->level,mk->address);
 		}
 		else if (table[i].kind == ID_VARIABLE)
 		{
@@ -703,7 +781,10 @@ void statement(symset fsys)
 			{
 				error(13); // ':=' expected.
 			}
-			expression(fsys);
+			if(expression(fsys)!=0)
+			{
+				error(28);
+			}
 			mk = (mask*) &table[i];
 			if (i)//这句没用，上面比较了i!=0
 			{
@@ -1186,15 +1267,14 @@ int main ()
 	// create begin symbol sets
 	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 	statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
-	facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
-
+	facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_TIMES, SYM_LPAREN, SYM_MINUS,SYM_ADDRESS, SYM_NULL);
 	err = cc = cx = ll = 0; // initialize global variables
 	ch = ' ';
 	kk = MAXIDLEN;
 
 	getsym();
 
-	set1 = createset(SYM_PERIOD, SYM_NULL);
+	set1 = createset(SYM_PERIOD,SYM_BECOMES, SYM_NULL);
 	set2 = uniteset(declbegsys, statbegsys);
 	set = uniteset(set1, set2);
 	block(set); // program -> block.
