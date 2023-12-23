@@ -2,7 +2,7 @@ var a,*b,**c;
 begin
   a := 1;
   b := &a;
-  c := *&b;
+  c := b;
   *b:=3;
   print(a);
   **c:=4;
