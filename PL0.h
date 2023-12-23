@@ -61,7 +61,7 @@ enum idtype
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, LEA, LODA, STOA, PRT
+	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, LEA, LODA, STOA, PRT, SWP
 };
 
 enum oprcode
@@ -135,6 +135,7 @@ int  cx;        	// index of current instruction to be generated.
 int  level = 0;		// current level
 int  tx = 0;		// table scale (last index of table)
 int  atx = 0;		// array table scale (last index of array table)
+int  arrid=0;
 
 char line[80];
 //原文件的一行
@@ -168,10 +169,10 @@ char csym[NSYM + 1] =
 	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';', '[', ']','&'
 };
 
-#define MAXINS   12
+#define MAXINS   13
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "LEA", "LODA", "STOA", "PRT"
+	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "LEA", "LODA", "STOA", "PRT","SWP"
 };
 
 // const table entries

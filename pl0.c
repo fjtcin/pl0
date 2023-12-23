@@ -13,6 +13,10 @@
 
 #define max(a,b) ((a)>(b)?(a):(b))
 #define min(a,b) ((a)<(b)?(a):(b))
+int abs(int a)
+{
+	return a>0?a:-a;
+} 
 
 //////////////////////////////////////////////////////////////////////
 
@@ -462,19 +466,26 @@ int factor(symset fsys)
 		{
 			getsym();
 			int dm=factor(fsys);
-			if(dm<=0)
+			if(dm==0)
 			{
 				error(26);
 			}
-			gen(LODA, 0, 0);
-			flag=dm-1;
+			if(dm>0)
+			{
+				gen(LODA, 0, 0);
+				flag=dm-1;
+			}
+			else
+			{
+				flag=dm+1;
+			}
 		}
 		else if(sym==SYM_ADDRESS)
 		{
 			getsym();
 			int dm=factor(fsys);
 			regen();
-			flag=dm+1;
+			flag=dm>0?dm+1:dm-1;
 		}
 		else if (sym == SYM_IDENTIFIER)
 		{
@@ -505,6 +516,7 @@ int factor(symset fsys)
 					iarray = arrposition(id);
 					flag = arrayindex(fsys, i, iarray);
 					if(!flag) gen(LODA, 0, 0);
+					else arrid=iarray;
 					flag=-flag;
 					break;
 				case ID_PROCEDURE:
@@ -619,7 +631,6 @@ int expression(symset fsys)
 {
 	int addop;
 	symset set;
-
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
 
 	int dm=term(set),dm1=0;
@@ -634,9 +645,24 @@ int expression(symset fsys)
 				gen(OPR, 0, OPR_ADD);
 			else if(dm1==0&&dm<0||dm1<0&&dm==0)
 			{
-				if(dm1<0)
+				if(dm<0)
 				{
-					
+					for(int i=arraytable[arrid].dim+dm+1;i<arraytable[arrid].dim;i++)
+					{
+						gen(LIT,0,arraytable[arrid].dimlen[i]);
+						gen(OPR,0,OPR_MUL);
+					}
+					gen(OPR,0,OPR_ADD);
+				}
+				else
+				{
+					//gen(SWP,0,0);
+					for(int i=arraytable[arrid].dim+dm1+1;i<arraytable[arrid].dim;i++)
+					{
+						gen(LIT,0,arraytable[arrid].dimlen[i]);
+						gen(OPR,0,OPR_MUL);
+					}
+					gen(OPR,0,OPR_ADD);
 				}
 			}
 			else
@@ -646,14 +672,34 @@ int expression(symset fsys)
 		}
 		else
 		{
-			gen(OPR, 0, OPR_MIN);
-			if(dm1!=dm&&dm1!=-dm)
+			if(dm1!=0&&dm==0)
 			{
 				error(27);
 			}
+			else if(dm1==0&&dm==0)
+				gen(OPR, 0, OPR_MIN);
+			else if(dm1==0&&dm>0)
+			{
+				gen(OPR, 0, OPR_MIN);
+			}
+			else if(dm1==0&&dm<0)
+			{
+				for(int i=arraytable[arrid].dim+dm+1;i<arraytable[arrid].dim;i++)
+				{
+					gen(LIT,0,arraytable[arrid].dimlen[i]);
+					gen(OPR,0,OPR_MUL);
+				}
+				gen(OPR,0,OPR_MIN);
+			}
 			else
 			{
+				if(dm1!=dm&&dm1!=-dm)
+				{
+					error(27);
+				}
 				dm=0;
+				gen(OPR, 0, OPR_MIN);
+				arrid=0;
 			}
 		}
 	} // while
@@ -740,14 +786,15 @@ void statement(symset fsys)
 		if(sym==SYM_TIMES)
 		{
 			getsym();
-			dm=expression(fsys);
+			dm=abs(expression(fsys));
 //printf("%d %d %s\n",sym,dm,id);
 			if(sym!=SYM_BECOMES)
 			{
 				error(13);
 			}
 			getsym();
-			dm1=expression(fsys);
+			dm1=abs(expression(fsys));
+			//printf("%d %d\n",dm,dm1);
 			if(dm-1!=dm1)
 			{
 				error(26);
@@ -767,7 +814,7 @@ void statement(symset fsys)
 				error(13);
 			}
 			getsym();
-			int dim=expression(fsys);
+			int dim=abs(expression(fsys));
 			if(arraytable[idpt].dim!=dim)
 			{
 				error(28);
@@ -810,7 +857,10 @@ void statement(symset fsys)
 			{
 				error(13); // ':=' expected.
 			}
-			expression(fsys);
+			if(expression(fsys)!=0)
+			{
+				error(28);
+			}
 			gen(STOA, 0, 0);
 		}
 		else
@@ -1110,7 +1160,7 @@ void interpret()
 	int pc;        // program counter
 	int stack[STACKSIZE];
 	int top;       // top of stack
-	int b;         // program, base, and top-stack register
+	int b,xx;         // program, base, and top-stack register
 	instruction i; // instruction register
 
 	printf("Begin executing PL/0 program.\n");
@@ -1237,6 +1287,11 @@ void interpret()
 				printf("\n");
 				break;
 			}
+			break;
+		case SWP:
+			xx=stack[top];
+			stack[top]=stack[top-1];
+			stack[top-1]=xx;
 			break;
 		} // switch
 		//for (int i = 1; i <= top; i++) printf("%d ", stack[i]);
