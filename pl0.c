@@ -1252,8 +1252,8 @@ int main ()
 	int i;
 	symset set, set1, set2;
 
-	freopen("11.out","w",stdout);
-	//printf("Please input source file name: "); // get file name to be compiled
+	//freopen("11.out","w",stdout);
+	printf("Please input source file name: "); // get file name to be compiled
 	scanf("%s", s);
 	if ((infile = fopen(s, "r")) == NULL)
 	{
