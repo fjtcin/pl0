@@ -107,6 +107,11 @@ void getsym(void)
 			sym = SYM_BECOMES; // :=
 			getch();
 		}
+		else if (ch == ':')
+		{
+			sym = SYM_SCOPE; // ::
+			getch();
+		}
 		else
 		{
 			sym = SYM_NULL;       // ignored
@@ -233,15 +238,59 @@ void enter(int kind)
 
 //////////////////////////////////////////////////////////////////////
 
-// locates identifier in symbol table.
-int position(char* id)
+// checks if the scope of the identifier is correct.
+// 一个对象的*父亲*，即为符号表上方与之 leveldiff = 1 的*最近*过程名。
+int check_scopes(int i, int k, int l)
 {
-	int i;
-	strcpy(table[0].name, id);
-	i = tx + 1;
-	while (strcmp(table[--i].name, id) != 0);
+	if (k < 0 || l < 0) return 1;
+	while (--i)
+	{
+		mask* mk = (mask*) &table[i];
+		if (mk->kind == ID_PROCEDURE && mk->level == l)
+			return !strcmp(scopes[k], mk->name) && check_scopes(i, k-1, mk->level-1);
+	}
+}
+
+// locates identifier in symbol table.
+int position()
+{
+	int i = tx + 1;
+	int k = scope_top - 1;
+	while (--i)
+	{
+		mask* mk = (mask*) &table[i];
+		if (scopes[0][0] && mk->level >= k || !scopes[0][0] && mk->level == k - 1)
+			if (!strcmp(scopes[k], mk->name))
+				if (check_scopes(i, k-1, mk->level-1))
+					break;
+	}
 	return i;
 } // position
+
+// Scope Resolution
+int handle_scopes()
+{
+	while (sym == SYM_SCOPE)
+	{
+		getsym();
+		if (sym == SYM_IDENTIFIER)
+		{
+			strcpy(scopes[scope_top++], id);
+			getsym();
+		}
+		else
+		{
+			error(26); // There must be an identifier to follow '::'.
+		}
+		if (scope_top >= MAXSCOPE)
+		{
+			error(28); // There are too many scopes.
+		}
+	}
+	int i = position();
+	scope_top = 0;
+	return i;
+}
 
 //////////////////////////////////////////////////////////////////////
 void constdeclaration()
@@ -268,7 +317,15 @@ void constdeclaration()
 		{
 			error(3); // There must be an '=' to follow the identifier.
 		}
-	} else	error(4);	 // There must be an identifier to follow 'const', 'var', or 'procedure'.
+	}
+	else if (sym == SYM_SCOPE)
+	{
+		error(29); // Declarations should be made within the scope.
+	}
+	else
+	{
+		error(4);	 // There must be an identifier to follow 'const', 'var', or 'procedure'.
+	}
 } // constdeclaration
 
 //////////////////////////////////////////////////////////////////////
@@ -278,6 +335,10 @@ void vardeclaration(void)
 	{
 		enter(ID_VARIABLE);
 		getsym();
+	}
+	else if (sym == SYM_SCOPE)
+	{
+		error(29); // Declarations should be made within the scope.
 	}
 	else
 	{
@@ -307,6 +368,7 @@ void listcode(int from, int to)
 // factor -> number {stack[top] = number}
 // factor -> -factor {stack[top] = -stack[top]}
 // factor -> (expr) {}
+// factor -> (ident | epsion)(::ident)* [scope resolution]
 void factor(symset fsys)
 {
 	void expression(symset fsys);
@@ -318,9 +380,17 @@ void factor(symset fsys)
 	if (inset(sym, facbegsys))
 	// else if: sym在fsys中, 直接跳过factor的分析
 	{
-		if (sym == SYM_IDENTIFIER)
+		if (sym == SYM_SCOPE || sym == SYM_IDENTIFIER)
 		{
-			if ((i = position(id)) == 0) //在table中寻找变量
+			if (sym == SYM_SCOPE) {
+				scopes[scope_top++][0] = 0;
+				i = handle_scopes();
+			} else {
+				strcpy(scopes[scope_top++], id);
+				getsym();
+				i = handle_scopes();
+			}
+			if (!i)
 			{
 				error(11); // Undeclared identifier.
 			}
@@ -343,7 +413,7 @@ void factor(symset fsys)
 					break;
 				} // switch
 			}
-			getsym();
+			// no getsym();
 		}
 		else if (sym == SYM_NUMBER)
 		// factor -> number, 把这个数置为栈顶
@@ -516,10 +586,18 @@ void statement(symset fsys)
 	int i, cx1, cx2;
 	symset set1, set;
 
-	if (sym == SYM_IDENTIFIER)
+	if (sym == SYM_IDENTIFIER || sym == SYM_SCOPE)
 	{ // variable assignment
 		mask* mk;
-		if (! (i = position(id)))
+		if (sym == SYM_SCOPE) {
+			scopes[scope_top++][0] = 0;
+			i = handle_scopes();
+		} else {
+			strcpy(scopes[scope_top++], id);
+			getsym();
+			i = handle_scopes();
+		}
+		if (!i)
 		{
 			error(11); // Undeclared identifier.
 		}
@@ -528,7 +606,7 @@ void statement(symset fsys)
 			error(12); // Illegal assignment.
 			i = 0;
 		}
-		getsym();
+		// no getsym();
 		if (sym == SYM_BECOMES)
 		{
 			getsym();
@@ -547,13 +625,17 @@ void statement(symset fsys)
 	else if (sym == SYM_CALL)
 	{ // procedure call
 		getsym();
-		if (sym != SYM_IDENTIFIER)
+		if (sym == SYM_IDENTIFIER || sym == SYM_SCOPE)
 		{
-			error(14); // There must be an identifier to follow the 'call'.
-		}
-		else
-		{
-			if (! (i = position(id)))
+			if (sym == SYM_SCOPE) {
+				scopes[scope_top++][0] = 0;
+				i = handle_scopes();
+			} else {
+				strcpy(scopes[scope_top++], id);
+				getsym();
+				i = handle_scopes();
+			}
+			if (!i)
 			{
 				error(11); // Undeclared identifier.
 			}
@@ -567,7 +649,11 @@ void statement(symset fsys)
 			{
 				error(15); // A constant or variable can not be called.
 			}
-			getsym();
+			// no getsym();
+		}
+		else
+		{
+			error(14); // There must be an identifier to follow the 'call'.
 		}
 	}
 	else if (sym == SYM_IF)
@@ -696,6 +782,7 @@ void block(symset fsys)
 				}
 			}
 			while (sym == SYM_IDENTIFIER);
+			if (sym == SYM_SCOPE) error(29); // Declarations should be made within the scope.
 		} // if
 
 		if (sym == SYM_VAR)
@@ -719,6 +806,7 @@ void block(symset fsys)
 				}
 			}
 			while (sym == SYM_IDENTIFIER);
+			if (sym == SYM_SCOPE) error(29); // Declarations should be made within the scope.
 		} // if
 		block_dx = dx; //save dx before handling procedure call!
 		while (sym == SYM_PROCEDURE)
@@ -728,6 +816,10 @@ void block(symset fsys)
 			{
 				enter(ID_PROCEDURE);
 				getsym();
+			}
+			else if (sym == SYM_SCOPE)
+			{
+				error(29); // Declarations should be made within the scope.
 			}
 			else
 			{
@@ -948,7 +1040,7 @@ void main ()
 	// create begin symbol sets
 	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 	statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
-	facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
+	facbegsys = createset(SYM_SCOPE, SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
 
 	err = cc = cx = ll = 0; // initialize global variables
 	ch = ' ';

@@ -10,7 +10,7 @@
 #define MAXLEVEL   32     // maximum depth of nesting block
 #define CXMAX      500    // size of code array
 
-#define MAXSYM     30     // maximum number of symbols  
+#define MAXSCOPE   30     // maximum number of scopes
 
 #define STACKSIZE  1000   // maximum storage
 
@@ -45,7 +45,8 @@ enum symtype
 	SYM_CALL,
 	SYM_CONST,
 	SYM_VAR,
-	SYM_PROCEDURE
+	SYM_PROCEDURE,
+	SYM_SCOPE
 };
 
 enum idtype
@@ -103,10 +104,10 @@ char* err_msg[] =
 /* 23 */    "The symbol can not be followed by a factor.",
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
-/* 26 */    "",
-/* 27 */    "",
-/* 28 */    "",
-/* 29 */    "",
+/* 26 */    "There must be an identifier to follow '::'.",
+/* 27 */    "Scope Resolution not implemented for constants",
+/* 28 */    "There are too many scopes.",
+/* 29 */    "Declarations should be made within the scope.",
 /* 30 */    "",
 /* 31 */    "",
 /* 32 */    "There are too many levels."
@@ -129,6 +130,9 @@ char line[80];
 //原文件的一行
 
 instruction code[CXMAX];
+
+char scopes[MAXSCOPE][MAXIDLEN + 1];
+int scope_top = 0;
 
 char* word[NRW + 1] =
 {

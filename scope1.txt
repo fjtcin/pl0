@@ -1,0 +1,31 @@
+var x;
+var i;
+procedure p1;
+    var i;
+    procedure p2;
+        var i;
+        procedure p3;
+            var i;
+        begin
+            i := 3;
+            x := ::i;
+            x := p1::i;
+            x := p2::i;
+            x := i;
+            x := ::i;
+            x := ::p1::i;
+            x := ::p1::p2::i;
+            x := ::p1::p2::p3::i;
+        end;
+    begin
+        i := 2;
+        call p3;
+    end;
+begin
+    i := 1;
+    call p2;
+end;
+begin
+    i := 0;
+    call p1;
+end.
