@@ -203,7 +203,7 @@ typedef struct
 typedef struct
 {
 	char  name[MAXIDLEN +1];
-	int   dim;
+	int   dim,ptdim;
 	int   dimlen[MAXARRAYDIM];
 } arr;
 

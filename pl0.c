@@ -325,12 +325,19 @@ void vardeclaration(void)
 			dimx++;
 			getsym();
 		} while (sym==SYM_TIMES);
-		enter(ID_POINTER);
-		atx++;
-		strcpy(arraytable[atx].name, table[tx].name);
-		arraytable[atx].dim = dimx;
-		for (int i=0;i<=MAXARRAYDIM;i++)arraytable[atx].dimlen[i]=0;
 		getsym();
+		if(sym!=SYM_LBRACKET)
+		{
+			enter(ID_POINTER);
+			atx++;
+			strcpy(arraytable[atx].name, table[tx].name);
+			arraytable[atx].dim = dimx;
+			for (int i=0;i<=MAXARRAYDIM;i++)arraytable[atx].dimlen[i]=0;
+		}
+		else
+		{
+			enter(ID_VARIABLE);
+		}
 	}
 	else
 	{
@@ -370,6 +377,8 @@ void vardeclaration(void)
 			getsym();
 		} while (sym == SYM_LBRACKET);
 		dx += arrspace - 1;
+		arraytable[atx].ptdim=dimx;
+		//printf(":%d\n",arraytable[atx].ptdim);
 		arraytable[atx].dim = arrdim;
 	}
 } // vardeclaration
@@ -477,7 +486,17 @@ int factor(symset fsys)
 			}
 			else
 			{
-				flag=dm+1;
+				int arrid=((-dm)&mask1)>>16;
+				dm=((-dm)&mask1);
+				if(arrid>0&&dm<=arraytable[arrid].ptdim)
+				{
+					flag=dm-1;
+				}
+				else
+				{
+					flag=-(dm|(arrid<<16))+1;
+				}
+				gen(LODA,0,0);
 			}
 		}
 		else if(sym==SYM_ADDRESS)
@@ -514,10 +533,9 @@ int factor(symset fsys)
 				case ID_ARRAY:
 					getsym();
 					iarray = arrposition(id);
-					flag = arrayindex(fsys, i, iarray);
-					if(!flag) gen(LODA, 0, 0);
-					else flag|=(iarray<<16);
-					flag=-flag;
+					flag = arrayindex(fsys, i, iarray)+arraytable[iarray].ptdim;
+					if(flag==arraytable[iarray].ptdim) gen(LODA, 0, 0);
+					else flag|=(iarray<<16),flag=-flag;
 					break;
 				case ID_PROCEDURE:
 					error(21); // Procedure identifier can not be in an expression.
@@ -868,7 +886,7 @@ void statement(symset fsys)
 			{
 				error(13); // ':=' expected.
 			}
-			if(expression(fsys)!=0)
+			if((abs(expression(fsys))&mask2)!=arraytable[iarray].ptdim)
 			{
 				error(28);
 			}
