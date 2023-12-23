@@ -399,13 +399,14 @@ int arrayindex(symset fsys, int itable, int iarray)
 
 	for (i = 0; i < tempdim; i++)
 	{
-		if (i == 0)
+		/*if (i == 0)
 		{
 			set1 = createset(SYM_LBRACKET);
 			test(set1, fsys, 33); // There must be a '[' to follow array declaration or reference.
 			destroyset(set1);
 		}
-		else if (sym != SYM_LBRACKET) break;
+		else */
+		if (sym != SYM_LBRACKET) break;
 		getsym();
 		j = i + 1;
 		for (offset = 1; j < tempdim; j++) offset *= arraytable[iarray].dimlen[j];
@@ -416,11 +417,10 @@ int arrayindex(symset fsys, int itable, int iarray)
 		destroyset(set);
 		destroyset(set1);
 		gen(OPR, 0, OPR_MUL);
-		if (i != 0) gen(OPR, 0, OPR_ADD);
+		gen(OPR, 0, OPR_ADD);
 		if (sym != SYM_RBRACKET) error(34);
 		getsym();
 	}
-	gen(OPR, 0, OPR_ADD);
 	return tempdim - i;
 }
 
@@ -505,6 +505,7 @@ int factor(symset fsys)
 					iarray = arrposition(id);
 					flag = arrayindex(fsys, i, iarray);
 					if(!flag) gen(LODA, 0, 0);
+					flag=-flag;
 					break;
 				case ID_PROCEDURE:
 					error(21); // Procedure identifier can not be in an expression.
@@ -584,14 +585,14 @@ int term(symset fsys)
 	int dm=factor(set);
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
 	{
-		if(dm>0)
+		if(dm!=0)
 		{
 			error(27);
 		}
 		mulop = sym;
 		getsym();
 		dm=factor(set);
-		if(dm>0)
+		if(dm!=0)
 		{
 			error(27);
 		}
@@ -629,10 +630,14 @@ int expression(symset fsys)
 		dm1=term(set);
 		if (addop == SYM_PLUS)
 		{
-			gen(OPR, 0, OPR_ADD);
-			if(dm1==0&&dm>0||dm1>0&&dm==0||dm1==0&&dm==0)
+			if(dm1==0&&dm==0||dm1>0&&dm==0||dm>0&&dm1==0)
+				gen(OPR, 0, OPR_ADD);
+			else if(dm1==0&&dm<0||dm1<0&&dm==0)
 			{
-				dm=max(dm,dm1);
+				if(dm1<0)
+				{
+					
+				}
 			}
 			else
 			{
@@ -642,7 +647,7 @@ int expression(symset fsys)
 		else
 		{
 			gen(OPR, 0, OPR_MIN);
-			if(dm1!=dm)
+			if(dm1!=dm&&dm1!=-dm)
 			{
 				error(27);
 			}
