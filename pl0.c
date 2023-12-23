@@ -249,6 +249,7 @@ int check_scopes(int i, int k, int l)
 		if (mk->kind == ID_PROCEDURE && mk->level == l)
 			return !strcmp(scopes[k], mk->name) && check_scopes(i, k-1, mk->level-1);
 	}
+	return 0;
 }
 
 // locates identifier in symbol table.
