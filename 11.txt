@@ -1,7 +1,0 @@
-var a,*b,**c,**d[10];
-begin
-a:=3;
-b:=&a;
-  d[0]:=&b;
-  print(**d[0]);
-end.
