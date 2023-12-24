@@ -122,7 +122,9 @@ char* err_msg[] =
 /* 35 */	"In dimension declaration must be a 'constant ID' or a 'number'.",
 /* 36 */	"There must be a '(' to follow 'print'.",
 /* 37 */    "There must be an identifier to follow '::'.",
-/* 38 */    "There are too many scopes."
+/* 38 */    "There are too many scopes.",
+/* 39 */    "Array indexing for non-pointers.",
+/* 40 */    "Incompatible types in assigmment."
 };
 
 //////////////////////////////////////////////////////////////////////

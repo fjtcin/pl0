@@ -504,7 +504,7 @@ int factor(symset fsys)
 {
 	int expression(symset fsys);
 	int i, flag=0, iarray;
-	symset set;
+	symset set, set1;
 
 	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
 
@@ -527,11 +527,11 @@ int factor(symset fsys)
 			else
 			{
 				// dm 如果是负的，就说明当前指针是数组指针
-				int arrid=((-dm)&mask1)>>16;
-				// arrid: 如果当前指针是数组指针，就是数组编号，否则就是0
-				// 也就是 dm < 0 时 arrid 才非 0
+				int iarray=((-dm)&mask1)>>16;
+				// iarray: 如果当前指针是数组指针，就是数组编号，否则就是0
+				// 也就是 dm < 0 时 iarray 才非 0
 				dm=((-dm)&mask2);
-				if(dm-1==arraytable[arrid].ptdim)
+				if(dm-1==arraytable[iarray].ptdim)
 				{
 					// 由数组指针变为普通指针或变量
 					gen(LODA,0,0);
@@ -539,7 +539,7 @@ int factor(symset fsys)
 				}
 				else
 				{
-					flag=-(dm|(arrid<<16))+1;
+					flag=-(dm|(iarray<<16))+1;
 				}
 			}
 		}
@@ -626,6 +626,47 @@ int factor(symset fsys)
 			{
 				error(22); // Missing ')'.
 			}
+			if (sym == SYM_LBRACKET)
+			{
+				if (flag >= 0)
+				{
+					error(39);
+				}
+				else
+				{
+					int iarray= ((-flag)&mask1)>>16;
+					int dm=(-flag)&mask2;
+					int offset;
+					int tempdim = arraytable[iarray].dim;
+					for (i = tempdim - (dm - arraytable[iarray].ptdim); i < tempdim; i++)
+					{
+						if (sym != SYM_LBRACKET) break;
+						getsym();
+						offset = arrayoffset(iarray, i);
+						gen(LIT, 0, offset);
+						set1 = createset(SYM_RBRACKET);
+						set = uniteset(set1, fsys);
+						expression(set);
+						destroyset(set);
+						destroyset(set1);
+						gen(OPR, 0, OPR_MUL);
+						gen(OPR, 0, OPR_ADD);
+						if (sym != SYM_RBRACKET) error(34);
+						getsym();
+					}
+					dm = tempdim - i + arraytable[iarray].ptdim;
+					if(dm==arraytable[iarray].ptdim)
+					{
+						// 由数组指针变为普通指针或变量
+						gen(LODA,0,0);
+						flag=dm;
+					}
+					else
+					{
+						flag=-(dm|(iarray<<16));
+					}
+				}
+			}
 		}
 		else if(sym == SYM_MINUS)
 		// factor -> -factor
@@ -658,7 +699,7 @@ int term(symset fsys)
 	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
 
 	int dm=factor(set);
-	int arrid=(dm>=0 ? 0 : ((-dm)&mask1)>>16);
+	int iarray=(dm>=0 ? 0 : ((-dm)&mask1)>>16);
 	dm=(dm>=0?(dm&mask2):-((-dm)&mask2));
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
 	{
@@ -684,7 +725,7 @@ int term(symset fsys)
 		}
 	} // while
 	destroyset(set);
-	return dm>=0?dm:-((-dm)|(arrid<<16));
+	return dm>=0?dm:-((-dm)|(iarray<<16));
 } // term
 
 //////////////////////////////////////////////////////////////////////
@@ -695,13 +736,13 @@ int term(symset fsys)
 // expression -> expression-term { top--; stack[top] = stack[top]-stack[top+1]}
 int expression(symset fsys)
 {
-	int addop,arrid;
+	int addop,iarray;
 	symset set;
 
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
 
 	int dm=term(set),dm1=0;
-	arrid=(dm>=0 ? 0 : ((-dm)&mask1)>>16);
+	iarray=(dm>=0 ? 0 : ((-dm)&mask1)>>16);
 	dm=(dm>=0?(dm&mask2):-((-dm)&mask2));
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
@@ -710,7 +751,7 @@ int expression(symset fsys)
 		dm1=term(set);
 		if (addop == SYM_PLUS)
 		{
-			arrid|=(dm1>=0 ? 0 : ((-dm1)&mask1)>>16);
+			iarray|=(dm1>=0 ? 0 : ((-dm1)&mask1)>>16);
 			dm1=(dm1>=0?(dm1&mask2):-((-dm1)&mask2));
 			if(dm1==0&&dm==0||dm1>0&&dm==0||dm>0&&dm1==0)
 				gen(OPR, 0, OPR_ADD);
@@ -718,7 +759,7 @@ int expression(symset fsys)
 			{
 				if(dm<0)
 				{
-					int offset = arrayoffset(arrid, arraytable[arrid].dim+dm);
+					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm);
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
@@ -726,7 +767,7 @@ int expression(symset fsys)
 				else
 				{
 					gen(SWP,0,0);
-					int offset = arrayoffset(arrid, arraytable[arrid].dim+dm);
+					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm);
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
@@ -746,7 +787,7 @@ int expression(symset fsys)
 					gen(OPR, 0, OPR_MIN);
 				else
 				{
-					int offset = arrayoffset(arrid, arraytable[arrid].dim+dm);
+					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm);
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_MIN);
@@ -765,7 +806,7 @@ int expression(symset fsys)
 	} // while
 
 	destroyset(set);
-	return dm>=0?dm:-((-dm)|(arrid<<16));
+	return dm>=0?dm:-((-dm)|(iarray<<16));
 } // expression
 
 //////////////////////////////////////////////////////////////////////
@@ -1059,6 +1100,80 @@ void statement(symset fsys)
 		if (sym != SYM_RPAREN) error(22); // missing ')'
 		getsym();
 		gen(PRT, 0, 1);
+	}
+	else if (sym == SYM_LPAREN)
+	{
+		getsym();
+		set = uniteset(createset(SYM_RPAREN, SYM_NULL), fsys); // 遇到 ')' 和 NULL 即可错误恢复
+		flag=expression(set);
+		destroyset(set);
+		if (sym == SYM_RPAREN)
+		{
+			getsym();
+		}
+		else
+		{
+			error(22); // Missing ')'.
+		}
+		if (sym == SYM_LBRACKET)
+		{
+			if (flag >= 0)
+			{
+				error(39);
+			}
+			else
+			{
+				int iarray= ((-flag)&mask1)>>16;
+				int dm=(-flag)&mask2;
+				int offset;
+				int tempdim = arraytable[iarray].dim;
+				for (i = tempdim - (dm - arraytable[iarray].ptdim); i < tempdim; i++)
+				{
+					if (sym != SYM_LBRACKET) break;
+					getsym();
+					offset = arrayoffset(iarray, i);
+					gen(LIT, 0, offset);
+					set1 = createset(SYM_RBRACKET);
+					set = uniteset(set1, fsys);
+					expression(set);
+					destroyset(set);
+					destroyset(set1);
+					gen(OPR, 0, OPR_MUL);
+					gen(OPR, 0, OPR_ADD);
+					if (sym != SYM_RBRACKET) error(34);
+					getsym();
+				}
+				dm = tempdim - i + arraytable[iarray].ptdim;
+				if(dm==arraytable[iarray].ptdim)
+				{
+					// 由数组指针变为普通指针或变量
+					// gen(LODA,0,0);
+					flag=dm;
+				}
+				else
+				{
+					flag=-(dm|(iarray<<16));
+				}
+			}
+		}
+		if (flag < 0)
+		{
+			error(40);
+		}
+		if (sym == SYM_BECOMES)
+		{
+			getsym();
+		}
+		else
+		{
+			error(13); // ':=' expected.
+		}
+		if(expression(fsys)!=0)
+		{
+			error(28);
+		}
+		mask* mk = (mask*) &table[i];
+		gen(STOA, 0, 0);
 	}
 	test(fsys, phi, 19); // "Incorrect symbol."
 } // statement
