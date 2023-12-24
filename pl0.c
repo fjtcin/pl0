@@ -439,6 +439,11 @@ void vardeclaration(void)
 	}
 } // vardeclaration
 
+int arrayoffset(int iarray, int st) {
+	int offset = 1;
+	for (int j = st + 1; j < arraytable[iarray].dim; j++) offset *= arraytable[iarray].dimlen[j];
+	return offset;
+}
 
 // generate the address of an array element and push it to the top of the stack
 // return dim - number of index
@@ -448,7 +453,7 @@ int arrayindex(symset fsys, int itable, int iarray)
 {
 	int expression(symset fsys);
 	symset set, set1;
-	int i, j, offset;
+	int i, offset;
 	int tempdim = arraytable[iarray].dim;
 	mask* mk = (mask*) &table[itable];
 
@@ -458,8 +463,7 @@ int arrayindex(symset fsys, int itable, int iarray)
 	{
 		if (sym != SYM_LBRACKET) break;
 		getsym();
-		j = i + 1;
-		for (offset = 1; j < tempdim; j++) offset *= arraytable[iarray].dimlen[j];
+		offset = arrayoffset(iarray, i);
 		gen(LIT, 0, offset);
 		set1 = createset(SYM_RBRACKET);
 		set = uniteset(set1, fsys);
@@ -515,7 +519,7 @@ int factor(symset fsys)
 			{
 				error(26);
 			}
-			if(dm>0)
+			else if(dm>0)
 			{
 				gen(LODA, 0, 0);
 				flag=dm-1;
@@ -524,19 +528,19 @@ int factor(symset fsys)
 			{
 				// dm 如果是负的，就说明当前指针是数组指针
 				int arrid=((-dm)&mask1)>>16;
-				// arrid: 如果当前指针在数组里，就是数组编号，否则就是0
+				// arrid: 如果当前指针是数组指针，就是数组编号，否则就是0
 				// 也就是 dm < 0 时 arrid 才非 0
 				dm=((-dm)&mask2);
-				if(dm==arraytable[arrid].ptdim)
+				if(dm-1==arraytable[arrid].ptdim)
 				{
-					// 由数组指针变为普通指针
+					// 由数组指针变为普通指针或变量
+					gen(LODA,0,0);
 					flag=dm-1;
 				}
 				else
 				{
 					flag=-(dm|(arrid<<16))+1;
 				}
-				if (dm == 1) gen(LODA,0,0);
 			}
 		}
 		else if(sym==SYM_ADDRESS)
@@ -544,7 +548,7 @@ int factor(symset fsys)
 			getsym();
 			int dm=factor(fsys);
 			regen();
-			flag=dm>0?dm+1:dm-1;
+			flag=dm>=0?dm+1:dm-1;
 		}
 		else if (sym == SYM_IDENTIFIER || sym == SYM_SCOPE)
 		{
@@ -714,21 +718,17 @@ int expression(symset fsys)
 			{
 				if(dm<0)
 				{
-					for(int i=arraytable[arrid].dim+dm+1;i<arraytable[arrid].dim;i++)
-					{
-						gen(LIT,0,arraytable[arrid].dimlen[i]);
-						gen(OPR,0,OPR_MUL);
-					}
+					int offset = arrayoffset(arrid, arraytable[arrid].dim+dm);
+					gen(LIT,0,offset);
+					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
 				}
 				else
 				{
 					gen(SWP,0,0);
-					for(int i=arraytable[arrid].dim+dm1+1;i<arraytable[arrid].dim;i++)
-					{
-						gen(LIT,0,arraytable[arrid].dimlen[i]);
-						gen(OPR,0,OPR_MUL);
-					}
+					int offset = arrayoffset(arrid, arraytable[arrid].dim+dm);
+					gen(LIT,0,offset);
+					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
 				}
 			}
@@ -740,24 +740,17 @@ int expression(symset fsys)
 		else
 		{
 			dm1=(dm1>=0?(dm1&mask2):-((-dm1)&mask2));
-			if(dm1!=0&&dm==0)
+			if (dm1 == 0)
 			{
-				error(27);
-			}
-			else if(dm1==0&&dm==0)
-				gen(OPR, 0, OPR_MIN);
-			else if(dm1==0&&dm>0)
-			{
-				gen(OPR, 0, OPR_MIN);
-			}
-			else if(dm1==0&&dm<0)
-			{
-				for(int i=arraytable[arrid].dim+dm+1;i<arraytable[arrid].dim;i++)
+				if(dm >= 0)
+					gen(OPR, 0, OPR_MIN);
+				else
 				{
-					gen(LIT,0,arraytable[arrid].dimlen[i]);
+					int offset = arrayoffset(arrid, arraytable[arrid].dim+dm);
+					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
+					gen(OPR,0,OPR_MIN);
 				}
-				gen(OPR,0,OPR_MIN);
 			}
 			else
 			{
@@ -772,7 +765,7 @@ int expression(symset fsys)
 	} // while
 
 	destroyset(set);
-	return dm>0?(dm|(arrid<<16)):-((-dm)|(arrid<<16));
+	return dm>=0?dm:-((-dm)|(arrid<<16));
 } // expression
 
 //////////////////////////////////////////////////////////////////////
