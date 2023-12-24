@@ -762,6 +762,7 @@ int expression(symset fsys)
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
+					dm = dm1;
 				}
 			}
 			else
@@ -786,7 +787,7 @@ int expression(symset fsys)
 			}
 			else
 			{
-				if(dm1!=dm&&dm1!=-dm)
+				if(dm1!=dm)
 				{
 					error(27);
 				}
