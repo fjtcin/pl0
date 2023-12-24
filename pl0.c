@@ -445,21 +445,12 @@ int arrayoffset(int iarray, int st) {
 	return offset;
 }
 
-// generate the address of an array element and push it to the top of the stack
-// return dim - number of index
-// dim == number of index (flag == 0): treat as var/number;
-// dim != number of index (flag != 0): treat as address/pointer.
-int arrayindex(symset fsys, int itable, int iarray)
+int baseindex(symset fsys, int st, int iarray)
 {
 	int expression(symset fsys);
 	symset set, set1;
 	int i, offset;
-	int tempdim = arraytable[iarray].dim;
-	mask* mk = (mask*) &table[itable];
-
-	gen(LEA, level - mk->level, mk->address);
-
-	for (i = 0; i < tempdim; i++)
+	for (i = st; i < arraytable[iarray].dim; i++)
 	{
 		if (sym != SYM_LBRACKET) break;
 		getsym();
@@ -475,7 +466,26 @@ int arrayindex(symset fsys, int itable, int iarray)
 		if (sym != SYM_RBRACKET) error(34);
 		getsym();
 	}
-	return tempdim - i;
+	return arraytable[iarray].dim - i;
+}
+
+// generate the address of an array element and push it to the top of the stack
+// return dim - number of index
+// dim == number of index (flag == 0): treat as var/number;
+// dim != number of index (flag != 0): treat as address/pointer.
+int arrayindex(symset fsys, int itable, int iarray)
+{
+	mask* mk = (mask*) &table[itable];
+	gen(LEA, level - mk->level, mk->address);
+	return baseindex(fsys, 0, iarray);
+}
+
+int arraypointerindex(symset fsys, int flag)
+{
+	// flag must be less than 0
+	int iarray = ((-flag)&mask1)>>16;
+	int dm = -((-flag)&mask2);
+	return baseindex(fsys, arraytable[iarray].dim+dm+arraytable[iarray].ptdim, iarray);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -634,27 +644,8 @@ int factor(symset fsys)
 				}
 				else
 				{
-					int iarray= ((-flag)&mask1)>>16;
-					int dm=(-flag)&mask2;
-					int offset;
-					int tempdim = arraytable[iarray].dim;
-					for (i = tempdim - (dm - arraytable[iarray].ptdim); i < tempdim; i++)
-					{
-						if (sym != SYM_LBRACKET) break;
-						getsym();
-						offset = arrayoffset(iarray, i);
-						gen(LIT, 0, offset);
-						set1 = createset(SYM_RBRACKET);
-						set = uniteset(set1, fsys);
-						expression(set);
-						destroyset(set);
-						destroyset(set1);
-						gen(OPR, 0, OPR_MUL);
-						gen(OPR, 0, OPR_ADD);
-						if (sym != SYM_RBRACKET) error(34);
-						getsym();
-					}
-					dm = tempdim - i + arraytable[iarray].ptdim;
+					int iarray = ((-flag)&mask1)>>16;
+					int dm = arraypointerindex(fsys, flag) + arraytable[iarray].ptdim;
 					if(dm==arraytable[iarray].ptdim)
 					{
 						// 由数组指针变为普通指针或变量
@@ -759,7 +750,7 @@ int expression(symset fsys)
 			{
 				if(dm<0)
 				{
-					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm);
+					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm+arraytable[iarray].ptdim);
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
@@ -767,7 +758,7 @@ int expression(symset fsys)
 				else
 				{
 					gen(SWP,0,0);
-					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm);
+					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm1+arraytable[iarray].ptdim);
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_ADD);
@@ -787,7 +778,7 @@ int expression(symset fsys)
 					gen(OPR, 0, OPR_MIN);
 				else
 				{
-					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm);
+					int offset = arrayoffset(iarray, arraytable[iarray].dim+dm+arraytable[iarray].ptdim);
 					gen(LIT,0,offset);
 					gen(OPR,0,OPR_MUL);
 					gen(OPR,0,OPR_MIN);
@@ -1123,27 +1114,8 @@ void statement(symset fsys)
 			}
 			else
 			{
-				int iarray= ((-flag)&mask1)>>16;
-				int dm=(-flag)&mask2;
-				int offset;
-				int tempdim = arraytable[iarray].dim;
-				for (i = tempdim - (dm - arraytable[iarray].ptdim); i < tempdim; i++)
-				{
-					if (sym != SYM_LBRACKET) break;
-					getsym();
-					offset = arrayoffset(iarray, i);
-					gen(LIT, 0, offset);
-					set1 = createset(SYM_RBRACKET);
-					set = uniteset(set1, fsys);
-					expression(set);
-					destroyset(set);
-					destroyset(set1);
-					gen(OPR, 0, OPR_MUL);
-					gen(OPR, 0, OPR_ADD);
-					if (sym != SYM_RBRACKET) error(34);
-					getsym();
-				}
-				dm = tempdim - i + arraytable[iarray].ptdim;
+				int iarray = ((-flag)&mask1)>>16;
+				int dm = arraypointerindex(fsys, flag) + arraytable[iarray].ptdim;
 				if(dm==arraytable[iarray].ptdim)
 				{
 					// 由数组指针变为普通指针或变量
@@ -1168,11 +1140,10 @@ void statement(symset fsys)
 		{
 			error(13); // ':=' expected.
 		}
-		if(expression(fsys)!=0)
+		if(expression(fsys)!=flag)
 		{
 			error(28);
 		}
-		mask* mk = (mask*) &table[i];
 		gen(STOA, 0, 0);
 	}
 	test(fsys, phi, 19); // "Incorrect symbol."
