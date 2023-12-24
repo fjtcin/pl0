@@ -1,11 +1,15 @@
-const n = 2;
-var a[n];
-procedure p;
+var m;
+var *p;
+var **q;
+var ***r;
+var * a[10];
 begin
-a[0+1*0+1*99/99] := 99;
-end;
-begin
-  call p;
-  a[0] := a[1];
-  print(n, a[0]);
+p := &m;
+q := &p;
+r := &q;
+
+***r := 100;
+a[0] := &m;
+a[1] := p;
+print(* a[0], *a[1], m);
 end.

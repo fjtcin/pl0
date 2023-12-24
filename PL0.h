@@ -12,9 +12,9 @@
 #define MAXLEVEL   32     // maximum depth of nesting block
 #define CXMAX      500    // size of code array
 
-#define MAXSYM     30     // maximum number of symbols
+#define MAXSCOPE   30     // maximum number of scopes
 
-#define STACKSIZE  1000   // maximum storage
+#define STACKSIZE  10000   // maximum storage
 
 enum symtype
 {
@@ -51,7 +51,8 @@ enum symtype
 	SYM_LBRACKET,
 	SYM_RBRACKET,
 	SYM_PRINT,
-	SYM_ADDRESS
+	SYM_ADDRESS,
+	SYM_SCOPE
 };
 
 enum idtype
@@ -112,15 +113,17 @@ char* err_msg[] =
 /* 26 */    "Invalid type argument of unary '*'",
 /* 27 */    "invalid operands of types pointer",
 /* 28 */    "invalid conversion from pointer/int to int/pointer",
-/* 29 */    "lvalue required as unary '&' operand",
+/* 29 */    "Declarations should be made within the scope.",
 /* 30 */    "Invalid type argument of unary '&'",
 /* 31 */    "wrong type argument to unary minus",
 /* 32 */    "There are too many levels.",
 /* 33 */	"Expecting '[' for array declaration or reference.",
 /* 34 */	"Missing ']'.",
 /* 35 */	"In dimension declaration must be a 'constant ID' or a 'number'.",
-/* 36 */	"There must be a '(' to follow 'print'."
-}; // 加下一个错误时记得加逗号
+/* 36 */	"There must be a '(' to follow 'print'.",
+/* 37 */    "There must be an identifier to follow '::'.",
+/* 38 */    "There are too many scopes."
+};
 
 //////////////////////////////////////////////////////////////////////
 char ch;         	// last character read
@@ -142,6 +145,9 @@ char line[80];
 //原文件的一行
 
 instruction code[CXMAX];
+
+char scopes[MAXSCOPE][MAXIDLEN + 1];
+int scope_top = 0;
 
 char* word[NRW + 1] =
 {
@@ -208,8 +214,6 @@ typedef struct
 } arr;
 
 arr arraytable[MAXARRAYNUM + 1];
-
-//int exdim//expression's dim判断当前值是几级指针，0是整数，不为0时不能乘除
 
 FILE* infile;
 
