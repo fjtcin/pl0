@@ -110,11 +110,11 @@ char* err_msg[] =
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
 /* 26 */    "Invalid type argument of unary '*'",//*后不是指针
-/* 27 */    "invalid operands of types pointer",//
-/* 28 */    "invalid conversion from pointer/int to int/pointer",
-/* 29 */    "lvalue required as unary '&' operand",//&&a
+/* 27 */    "invalid operands of types pointer",//指针加减法错误
+/* 28 */    "invalid conversion from pointer/int to int/pointer",//赋值维数不统一
+/* 29 */    "",
 /* 30 */    "Invalid type argument of unary '&'",//不合法取址
-/* 31 */    "wrong type argument to unary minus",
+/* 31 */    "wrong type argument to unary minus",//对指针取负
 /* 32 */    "There are too many levels.",
 /* 33 */	"Expecting '[' for array declaration or reference.",
 /* 34 */	"Missing ']'.",

@@ -1159,7 +1159,7 @@ void block(symset fsys)
 	mk->address = cx;
 	cx0 = cx;
 	gen(INT, 0, block_dx);
-	set1 = createset(SYM_SEMICOLON, SYM_END, SYM_NULL);
+	set1 = createset(SYM_SEMICOLON, SYM_END, SYM_BECOMES, SYM_NULL);
 	set = uniteset(set1, fsys);
 	statement(set);
 	destroyset(set1);
@@ -1363,7 +1363,7 @@ int main ()
 
 	getsym();
 
-	set1 = createset(SYM_PERIOD,SYM_BECOMES, SYM_NULL);
+	set1 = createset(SYM_PERIOD, SYM_NULL);
 	set2 = uniteset(declbegsys, statbegsys);
 	set = uniteset(set1, set2);
 	block(set); // program -> block.
